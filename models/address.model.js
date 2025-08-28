@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import CounterModel from "./counterModel.js";
 
 const addressSchema = new mongoose.Schema(
   {
@@ -33,16 +34,21 @@ const addressSchema = new mongoose.Schema(
     },
     addressId:{
       type: Number,
+      unique: true,
+      ref: "Customers"
+    },
+    address_id:{
+      type: Number,
       unique: true
     },
     status: {
       type: Boolean,
       default: true
     },
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // better to reference User collection
-      required: true
+    user_id: {
+      type: Number,
+      required: true,
+      ref:"Customers"
     }
   },
   {
@@ -50,14 +56,15 @@ const addressSchema = new mongoose.Schema(
   }
 );
 addressSchema.pre("save", async function (next) {
-  if (this.isNew) {
+  if (this.isNew && !this.address_id) {
     try {
-      const counter = await CounterModel.findByIdAndUpdate(
-        { _id: "addressId" }, // counter key for categories
+      // Generate cartItemId
+      const counterItem = await CounterModel.findOneAndUpdate(
+        { id: "address_id" },
         { $inc: { seq: 1 } },
         { new: true, upsert: true }
       );
-      this.addressId = counter.seq;
+      this.address_id = counterItem.seq;
     } catch (err) {
       return next(err);
     }
