@@ -3,23 +3,25 @@ import UserModel from "../models/user.model.js";
 
 export const addAddressController = async(request,response)=>{
     try {
-        const userId = request.user_id // middleware
+        const userId = request.user.user_id
+        // console.log("user is fro auth request",request.user) // middleware
         const { address_line , city, state, pincode, country,mobile } = request.body
-
+        // console.log("getting form addrss body",request.body)
         const createAddress = new AddressModel({
             address_line,
+            addressId:request.user.addressId,
+            user_id:request.user.user_id,
             city,
             state,
             country,
             pincode,
             mobile,
-            userId : userId 
         })
         const saveAddress = await createAddress.save()
 
-        const addUserAddressId = await UserModel.findByIdAndUpdate(userId,{
+        const addUserAddressId = await UserModel.findByIdAndUpdate({_id:request.user._id},{
             $push : {
-                address_details : saveAddress.addressId
+                address_details : saveAddress._id
             }
         })
 
@@ -31,6 +33,7 @@ export const addAddressController = async(request,response)=>{
         })
 
     } catch (error) {
+        console.log("error+>",error)
         return response.status(500).json({
             message : error.message || error,
             error : true,
@@ -41,9 +44,9 @@ export const addAddressController = async(request,response)=>{
 
 export const getAddressController = async(request,response)=>{
     try {
-        const userId = request.userId // middleware auth
+        const userId = request.user.user_id // middleware auth
 
-        const data = await AddressModel.find({ userId : userId }).sort({ createdAt : -1})
+        const data = await AddressModel.find({ user_id : userId }).sort({ createdAt : -1})
 
         return response.json({
             data : data,
@@ -62,17 +65,18 @@ export const getAddressController = async(request,response)=>{
 
 export const updateAddressController = async(request,response)=>{
     try {
-        const userId = request.user_id // middleware auth 
-        const { addressId, address_line,city,state,country,pincode, mobile } = request.body 
-
-        const updateAddress = await AddressModel.updateOne({ addressId : addressId, userId : userId },{
+        const userId = request.user.user_id // middleware auth 
+        const { address_id, address_line,city,state,country,pincode, mobile } = request.body 
+        console.log("req_body",request.params)
+        const updateAddress = await AddressModel.updateOne({ address_id : address_id, user_id : userId },{
             address_line,
             city,
             state,
             country,
             mobile,
             pincode
-        })
+        },
+    {new: true})
 
         return response.json({
             message : "Address Updated",
@@ -91,10 +95,10 @@ export const updateAddressController = async(request,response)=>{
 
 export const deleteAddresscontroller = async(request,response)=>{
     try {
-        const userId = request.userId // auth middleware    
-        const { addressId } = request.body 
+        const userId = request.user.user_id // auth middleware    
+        const { address_id } = request.body 
 
-        const disableAddress = await AddressModel.updateOne({ addressId : addressId, userId},{
+        const disableAddress = await AddressModel.deleteOne({ address_id : address_id, user_id:userId},{
             status : false
         })
 

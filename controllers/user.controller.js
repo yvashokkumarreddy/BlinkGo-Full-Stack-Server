@@ -1,6 +1,6 @@
 import sendEmail from '../config/sendEmail.js'
 import UserModel from '../models/user.model.js'
-import bcryptjs from 'bcryptjs'
+import bcrypt from 'bcryptjs'
 import verifyEmailTemplate from '../utils/verifyEmailTemplate.js'
 import generatedAccessToken from '../utils/generatedAccessToken.js'
 import genertedRefreshToken from '../utils/generatedRefreshToken.js'
@@ -8,67 +8,97 @@ import uploadImageClodinary from '../utils/uploadImageClodinary.js'
 import generatedOtp from '../utils/generatedOtp.js'
 import forgotPasswordTemplate from '../utils/forgotPasswordTemplate.js'
 import jwt from 'jsonwebtoken'
+import CounterModel from '../models/counterModel.js'
 
-export async function registerUserController(request,response){
-    try {
-        const { name, email , password } = request.body
 
-        if(!name || !email || !password){
-            return response.status(400).json({
-                message : "provide email, name, password",
-                error : true,
-                success : false
-            })
-        }
+export const registerUserController = async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
 
-        const user = await UserModel.findOne({ email })
-
-        if(user){
-            return response.json({
-                message : "Already register email",
-                error : true,
-                success : false
-            })
-        }
-
-        const salt = await bcryptjs.genSalt(10)
-        const hashPassword = await bcryptjs.hash(password,salt)
-
-        const payload = {
-            name,
-            email,
-            password : hashPassword
-        }
-
-        const newUser = new UserModel(payload)
-        const save = await newUser.save()
-
-        const VerifyEmailUrl = `${process.env.FRONTEND_URL}/verify-email?code=${save?.user_id}`
-
-        const verifyEmail = await sendEmail({
-            sendTo : email,
-            subject : "Verify email from binkeyit",
-            html : verifyEmailTemplate({
-                name,
-                url : VerifyEmailUrl
-            })
-        })
-
-        return response.json({
-            message : "User register successfully",
-            error : false,
-            success : true,
-            data : save
-        })
-
-    } catch (error) {
-        return response.status(500).json({
-            message : error.message || error,
-            error : true,
-            success : false
-        })
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        message: "Name, email, and password are required",
+        error: true,
+        success: false,
+      });
     }
-}
+
+    // Check if user already exists
+    const existingUser = await UserModel.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        message: "Email already registered",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Auto increment user_id
+    const userCounter = await CounterModel.findOneAndUpdate(
+      { id: "user_id" },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
+
+    const user_id = userCounter.seq;
+
+    // Auto increment cartId
+    const cartCounter = await CounterModel.findOneAndUpdate(
+      { id: "cart_id" },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
+
+    const cartId = cartCounter.seq;
+
+    // Auto increment addressId
+    const addressCounter = await CounterModel.findOneAndUpdate(
+      { id: "addressId" },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
+
+    const addressId = addressCounter.seq;
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user
+    const newUser = new UserModel({
+      user_id,
+      name,
+      email,
+      password: hashedPassword,
+      cartId,
+      addressId,
+    //   role:'user'
+    });
+
+    await newUser.save();
+
+    return res.status(201).json({
+      message: "User registered successfully",
+      success: true,
+      error: false,
+      data: {
+        user_id: newUser.user_id,
+        email: newUser.email,
+        cartId: newUser.cartId,
+        addressId: newUser.addressId,
+      },
+    });
+  } catch (error) {
+     console.log("Error =>",error)
+    return res.status(500).json({
+      message: error.message || "Internal Server Error",
+      error: true,
+      success: false,
+    });
+  }
+};
+
+
+
 
 export async function verifyEmailController(request,response){
     try {
@@ -103,6 +133,7 @@ export async function verifyEmailController(request,response){
 }
 
 //login controller
+
 export async function loginController(request, response) {
     try {
         const { email, password } = request.body;
@@ -116,7 +147,7 @@ export async function loginController(request, response) {
         }
 
         const user = await UserModel.findOne({ email });
-        console.log("user:-",user)
+        console.log("user:-", user);
         if (!user) {
             return response.status(400).json({
                 message: "User not registered",
@@ -133,7 +164,8 @@ export async function loginController(request, response) {
             });
         }
 
-        const checkPassword = await bcryptjs.compare(password, user.password);
+        const checkPassword = await bcrypt
+        .compare(password, user.password);
         if (!checkPassword) {
             return response.status(400).json({
                 message: "Check your password",
@@ -142,20 +174,25 @@ export async function loginController(request, response) {
             });
         }
 
-        const accessToken = await generatedAccessToken(user.user_id);
+        // const accessToken = await generatedAccessToken(user.user_id,user.role);
         const refreshToken = await genertedRefreshToken(user.user_id);
-
-        await UserModel.findByIdAndUpdate(user._id, {
-            last_login_date: new Date()
-        });
+        const accessToken = jwt.sign({user_id: user.user_id},
+            process.env.JWT_SECRET,{
+                expiresIn : "1d"
+            }
+        )
+        // ✅ Use findOneAndUpdate with user_id
+        await UserModel.findOneAndUpdate(
+            { user_id: user.user_id },
+            { last_login_date: new Date() }
+        );
 
         // Set cookies (optional if frontend is not using cookies)
         const isProduction = process.env.NODE_ENV === "production";
-
         const cookiesOption = {
-        httpOnly: true,
-        secure: isProduction,      // ❌ false on localhost, ✅ true in production
-        sameSite: isProduction ? "None" : "Lax", // ✅ Lax works for localhost
+            httpOnly: true,
+            secure: isProduction,      
+            sameSite: isProduction ? "None" : "Lax",
         };
 
         response.cookie("accessToken", accessToken, cookiesOption);
@@ -168,14 +205,17 @@ export async function loginController(request, response) {
             message: "Login successfully",
             error: false,
             success: true,
-            data: {
+            token: accessToken,
+            refreshToken,
+            user: {
                 user_id: user.user_id,
-                accessToken,
-                refreshToken
+                email:user.email,
+                role:user.role
             }
         });
 
     } catch (error) {
+        console.error("❌ Login Error:", error);
         return response.status(500).json({
             message: error.message || error,
             error: true,
@@ -185,10 +225,11 @@ export async function loginController(request, response) {
 }
 
 
+
 //logout controller
 export async function logoutController(request,response){
     try {
-        const userid = request.userId //middleware
+        const userid = request.user_id //middleware
 
         const cookiesOption = {
             httpOnly : true,
@@ -220,7 +261,7 @@ export async function logoutController(request,response){
 //upload user avatar
 export async  function uploadAvatar(request,response){
     try {
-        const userId = request.userId // auth middlware
+        const userId = request.user_id // auth middlware
         const image = request.file  // multer middleware
 
         const upload = await uploadImageClodinary(image)
@@ -475,7 +516,7 @@ export async function refreshToken(req, res) {
         success: false,
       });
     }
-    console.log(decoded)
+    console.log("decoded",decoded)
     // handle id from payload
     const userId = decoded.user_id;
     if (!userId) {
@@ -528,17 +569,17 @@ export async function refreshToken(req, res) {
 //get login user details
 export async function userDetails(request,response){
     try {
-        const userId  = request.body.user_id
-
+        const userId  = request.user_id
+        console.log("request_body",request.user_id)
         
-const user = await UserModel.findOne({ user_id: userId })
+const user = await UserModel.findOne(userId)
   .select("-password -refresh_token");
 
 if (!user) {
   return response.status(404).json({ message: "User not found" });
 }
 // response.json(user);
-        console.log(user)
+        console.log("no",user)
         return response.json({
             message : 'user details',
             data : user,

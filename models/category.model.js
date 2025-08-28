@@ -1,30 +1,18 @@
 import mongoose from "mongoose";
-import CounterModel from "./counterModel.js"; // make sure you have a counter collection
+import CounterModel from "./counterModel.js";
 
-const categorySchema = new mongoose.Schema(
-  {
-    name: {
-      type: String,
-      default: "",
-    },
-    image: {
-      type: String,
-      default: "",
-    },
-    categoryId: { type: Number, unique: true }, // auto-incremented numeric ID
-    parentCategory: { type: Number, default: null }, // for subcategories, reference parent categoryId
-  },
-  {
-    timestamps: true,
-  }
-);
+const categorySchema = new mongoose.Schema({
+  name: { type: String, default: "" },
+  image: { type: String, default: "" },
+  categoryId: { type: Number, unique: true },
+  parentCategory: { type: Number, default: null },
+}, { timestamps: true });
 
-// Pre-save hook to auto-increment categoryId
-categorySchema.pre("save", async function (next) {
+categorySchema.pre("save", async function(next) {
   if (this.isNew) {
     try {
-      const counter = await CounterModel.findByIdAndUpdate(
-        { _id: "categoryId" }, // counter key for categories
+      const counter = await CounterModel.findOneAndUpdate(
+        { id: "categoryId" },
         { $inc: { seq: 1 } },
         { new: true, upsert: true }
       );
@@ -36,6 +24,5 @@ categorySchema.pre("save", async function (next) {
   next();
 });
 
-const CategoryModel = mongoose.model("category", categorySchema);
-
+const CategoryModel = mongoose.models.Category || mongoose.model("Category", categorySchema);
 export default CategoryModel;
