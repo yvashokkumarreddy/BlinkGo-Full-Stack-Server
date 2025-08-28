@@ -1,14 +1,15 @@
 import UserModel from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 
-const generatedAccessToken = async (userId) => {
+const generatedAccessToken = async (userId, role) => {
   try {
     // create refresh token with user_id (auto-incremented)
     const token = jwt.sign(
-      { user_id: userId }, // 👈 directly use userId
+      { user_id: userId, role: role }, // 👈 directly use userId
       process.env.SECRET_KEY_ACCESS_TOKEN,
-      { expiresIn: "7d" }
+      { expiresIn: "1d" }
     );
+
 
     // update user's refresh_token in DB
     await UserModel.updateOne(
