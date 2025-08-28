@@ -3,39 +3,33 @@ import CounterModel from "./counterModel.js";
 
 const cartProductSchema = new mongoose.Schema(
   {
-    cartId: {
-      type: Number,
-      unique: true, // auto-increment
-    },
-    productId: {
-      type: Number, // store Product's auto-incremented productId
-      required: true,
-    },
-    quantity: {
-      type: Number,
-      default: 1,
-    },
-    userId: {
-      type: mongoose.Schema.Types.ObjectId, // reference User _id
-      ref: "User",
-      required: true,
-    },
+     // auto-increment
+    cartId: { type: Number, required: true }, // unique per user
+    items: [
+      {
+      cartItemId: { type: Number, unique: true, required: true },
+      productId: {type: Number, required:true},
+      quantity: { type: Number, default: 1 },
+      price: {type: Number, required: true },
+      status: {type: Boolean,default: true}
+      }
+    ],
+    user_id: { type: Number, ref: "Customers", required: true },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-// Pre-save hook to auto-increment cartId
+// Pre-save hook for auto-increment
 cartProductSchema.pre("save", async function (next) {
   if (this.isNew) {
     try {
-      const counter = await CounterModel.findByIdAndUpdate(
-        { _id: "cartId" },
+      // Generate cartItemId
+      const counterItem = await CounterModel.findOneAndUpdate(
+        { id: "cartItemId" },
         { $inc: { seq: 1 } },
         { new: true, upsert: true }
       );
-      this.cartId = counter.seq;
+      this.cartItemId = counterItem.seq;
     } catch (err) {
       return next(err);
     }

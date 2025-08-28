@@ -36,7 +36,7 @@ subCategorySchema.pre("save", async function (next) {
   if (this.isNew) {
     try {
       const counter = await CounterModel.findByIdAndUpdate(
-        { _id: "subCategoryId" }, // counter key for subcategories
+        { subcategoryId: "subCategoryId" }, // counter key for subcategories
         { $inc: { seq: 1 } },
         { new: true, upsert: true }
       );
