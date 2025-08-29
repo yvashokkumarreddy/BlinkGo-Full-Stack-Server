@@ -1,6 +1,6 @@
 import CartModel from "../models/cartproduct.model.js";
 import ProductModel from "../models/product.model.js";
-import CounterModel from "../models/counterModel.js"; // for auto-increment cartItemId
+import CounterModel from "../models/CounterModel.js"; // for auto-increment cartItemId
 
 
 // Add item to cart
