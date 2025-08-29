@@ -8,7 +8,7 @@ import uploadImageClodinary from '../utils/uploadImageClodinary.js'
 import generatedOtp from '../utils/generatedOtp.js'
 import forgotPasswordTemplate from '../utils/forgotPasswordTemplate.js'
 import jwt from 'jsonwebtoken'
-import CounterModel from '../models/counterModel.js'
+import CounterModel from "../models/counterModel.js";
 
 
 export const registerUserController = async (req, res) => {
