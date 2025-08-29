@@ -18,10 +18,15 @@ import orderRouter from './route/order.route.js'
 
 
 const app = express()
-app.use(cors({
-    credentials : true,
-    origin : process.env.FRONTEND_URL
-}))
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN|| "http://localhost:5173", // frontend origin (adjust in prod)
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  })
+);
+
 app.use(express.json())
 app.use(cookieParser())
 app.use(morgan())
@@ -30,7 +35,7 @@ app.use(helmet({
 }))
 
 const PORT = 6502 || process.env.PORT 
-
+app.get("/healthz",(req,res)=>res.send("ok"))
 app.get("/",(request,response)=>{
     ///server to client
     response.json({
@@ -51,7 +56,7 @@ app.use(express.urlencoded({extended: true}))
 
 
 connectDB().then(()=>{
-    app.listen(PORT,'192.168.1.17',()=>{
+    app.listen(PORT,'0.0.0.0',()=>{
         console.log("Server is running http://0.0.0.0:",PORT)
     })
 })
