@@ -40,7 +40,7 @@ productSchema.pre("save", async function (next) {
   if (this.isNew) {
     try {
       const counter = await CounterModel.findByIdAndUpdate(
-        "productId", // Counter document _id for products
+        { id: "productId" }, // Counter document _id for products
         { $inc: { seq: 1 } },
         { new: true, upsert: true }
       );

@@ -134,129 +134,76 @@ export async function verifyEmailController(request,response){
 
 //login controller
 
-export async function loginController(request, response) {
-    try {
-        const { email, password } = request.body;
+export async function loginController(req, res) {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password)
+      return res.status(400).json({ message: "Provide email and password", error: true, success: false });
 
-        if (!email || !password) {
-            return response.status(400).json({
-                message: "Provide email and password",
-                error: true,
-                success: false
-            });
-        }
+    const user = await UserModel.findOne({ email });
+    if (!user) return res.status(400).json({ message: "User not registered", error: true, success: false });
+    if (user.status !== "Active") return res.status(400).json({ message: "Contact Admin", error: true, success: false });
 
-        const user = await UserModel.findOne({ email });
-        console.log("user:-", user);
-        if (!user) {
-            return response.status(400).json({
-                message: "User not registered",
-                error: true,
-                success: false
-            });
-        }
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ message: "Check your password", error: true, success: false });
 
-        if (user.status !== "Active") {
-            return response.status(400).json({
-                message: "Contact Admin",
-                error: true,
-                success: false
-            });
-        }
+    const accessToken = jwt.sign({ user_id: user.user_id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+    const refreshToken = jwt.sign({ user_id: user.user_id }, process.env.SECRET_KEY_REFRESH_TOKEN, { expiresIn: "7d" });
 
-        const checkPassword = await bcrypt
-        .compare(password, user.password);
-        if (!checkPassword) {
-            return response.status(400).json({
-                message: "Check your password",
-                error: true,
-                success: false
-            });
-        }
+    await UserModel.findOneAndUpdate({ user_id: user.user_id }, { last_login_date: new Date() });
 
-        // const accessToken = await generatedAccessToken(user.user_id,user.role);
-        const refreshToken = await genertedRefreshToken(user.user_id);
-        const accessToken = jwt.sign({user_id: user.user_id},
-            process.env.JWT_SECRET,{
-                expiresIn : "1d"
-            }
-        )
-        // ✅ Use findOneAndUpdate with user_id
-        await UserModel.findOneAndUpdate(
-            { user_id: user.user_id },
-            { last_login_date: new Date() }
-        );
+    const cookiesOption = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+    };
 
-        // Set cookies (optional if frontend is not using cookies)
-        const isProduction = process.env.NODE_ENV === "production";
-        const cookiesOption = {
-            httpOnly: true,
-            secure: isProduction,      
-            sameSite: isProduction ? "None" : "Lax",
-        };
+    res.cookie("accessToken", accessToken, cookiesOption);
+    res.cookie("refreshToken", refreshToken, cookiesOption);
+    res.setHeader("Authorization", `Bearer ${accessToken}`);
 
-        response.cookie("accessToken", accessToken, cookiesOption);
-        response.cookie("refreshToken", refreshToken, cookiesOption);
+    return res.json({
+      message: "Login successfully",
+      error: false,
+      success: true,
+      token: accessToken,
+      refreshToken,
+      user: { user_id: user.user_id, email: user.email, role: user.role },
+    });
 
-        // 🔥 Set Authorization header in response
-        response.setHeader("Authorization", `Bearer ${accessToken}`);
-
-        return response.json({
-            message: "Login successfully",
-            error: false,
-            success: true,
-            token: accessToken,
-            refreshToken,
-            user: {
-                user_id: user.user_id,
-                email:user.email,
-                role:user.role
-            }
-        });
-
-    } catch (error) {
-        console.error("❌ Login Error:", error);
-        return response.status(500).json({
-            message: error.message || error,
-            error: true,
-            success: false
-        });
-    }
+  } catch (error) {
+    console.error("Login error:", error);
+    return res.status(500).json({ message: error.message || error, error: true, success: false });
+  }
 }
 
 
 
-//logout controller
-export async function logoutController(request,response){
-    try {
-        const userid = request.user_id //middleware
 
-        const cookiesOption = {
-            httpOnly : true,
-            secure : true,
-            sameSite : "None"
-        }
 
-        response.clearCookie("accessToken",cookiesOption)
-        response.clearCookie("refreshToken",cookiesOption)
+export async function logoutController(req, res) {
+  try {
+    const userId = req.user.user_id;
 
-        const removeRefreshToken = await UserModel.findByIdAndUpdate(userid,{
-            refresh_token : ""
-        })
+    const cookiesOption = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+    };
 
-        return response.json({
-            message : "Logout successfully",
-            error : false,
-            success : true
-        })
-    } catch (error) {
-        return response.status(500).json({
-            message : error.message || error,
-            error : true,
-            success : false
-        })
-    }
+    res.clearCookie("accessToken", cookiesOption);
+    res.clearCookie("refreshToken", cookiesOption);
+
+    await UserModel.findOneAndUpdate({ user_id: userId }, { refresh_token: "" });
+
+    return res.json({ message: "Logout successfully", error: false, success: true });
+
+  } catch (error) {
+    console.error("Logout error:", error);
+    return res.status(500).json({ message: error.message || error, error: true, success: false });
+  }
 }
+
 
 //upload user avatar
 export async  function uploadAvatar(request,response){
@@ -567,29 +514,34 @@ export async function refreshToken(req, res) {
 
 
 //get login user details
-export async function userDetails(request,response){
-    try {
-        const userId  = request.user_id
-        console.log("request_body",request.user_id)
-        
-const user = await UserModel.findOne(userId)
-  .select("-password -refresh_token");
-
-if (!user) {
-  return response.status(404).json({ message: "User not found" });
-}
-// response.json(user);
-        console.log("no",user)
-        return response.json({
-            message : 'user details',
-            data : user,
-            success : true
-        })
-    } catch (error) {
-        return response.status(500).json({
-            message : "Something is wrong",
-            error : true,
-            success : false
-        })
+export async function userDetails(request, response) {
+  try {
+    const userId = request.user?.user_id; // get from auth middleware
+    if (!userId) {
+      return response.status(401).json({
+        message: "Unauthorized",
+        success: false
+      });
     }
+
+    const user = await UserModel.findOne({ user_id: userId }) // ✅ filter correctly
+      .select("-password -refresh_token");
+
+    if (!user) {
+      return response.status(404).json({ message: "User not found", success: false });
+    }
+
+    return response.json({
+      message: "user details",
+      data: user,
+      success: true
+    });
+  } catch (error) {
+    console.error(error);
+    return response.status(500).json({
+      message: "Something went wrong",
+      error: true,
+      success: false
+    });
+  }
 }
