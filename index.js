@@ -20,7 +20,7 @@ import orderRouter from './route/order.route.js'
 const app = express()
 app.use(
   cors({
-    origin: "https://blink-go-full-stack-client.vercel.app/"|| "http://localhost:5173", // frontend origin (adjust in prod)
+    origin: "https://blink-go-full-stack-client.vercel.app", // frontend origin (adjust in prod)
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
