@@ -102,7 +102,7 @@ export const assignSubCategoryIds = async () => {
     const subCategories = await SubCategoryModel.find();
     const products = await ProductModel.find().sort({ createdAt: 1 }); // sort for stable order
     let counter = 1; // for sequential productId
-    console.log(products)
+    // console.log(products)
     for (let product of products) {
       // === Map subCategory first ===
       const parentSubCategoryObjectId = product.subCategory?.[0];
@@ -186,7 +186,7 @@ export const updateSubCategoryController = async (request, response) => {
 export const deleteSubCategoryController = async(request,response)=>{
     try {
         const { subCategoryId } = request.body 
-        console.log("Id",subCategoryId)
+        // console.log("Id",subCategoryId)
         const deleteSub = await SubCategoryModel.findByIdAndDelete(subCategoryId)
 
         return response.json({

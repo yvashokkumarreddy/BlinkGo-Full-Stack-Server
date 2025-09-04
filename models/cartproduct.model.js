@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const cartItemSchema = new mongoose.Schema({
-  cartItemId: { type: Number, unique: true, required: true },
+    cartItemId: { type: Number, required: true },
   productId: { type: Number,ref: "Products", required: true },
   quantity: { type: Number, default: 1 },
   price: { type: Number, required: true },
@@ -17,7 +17,7 @@ const cartSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
+cartSchema.index({ user_id: 1, "items.cartItemId": 1 }, { unique: true });
 const CartModel = mongoose.model("carts", cartSchema);
 
 export default CartModel;

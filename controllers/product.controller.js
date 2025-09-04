@@ -101,7 +101,7 @@ export const getProductController = async(request,response)=>{
 export const getProductByCategory = async(request,response)=>{
     try {
         const { categoryId } = request.body 
-        console.log("categoryId",categoryId,"=======")
+        // console.log("categoryId",categoryId,"=======")
         if(!categoryId){
             return response.status(400).json({
                 message : "provide category id",
@@ -183,8 +183,8 @@ export const getProductByCategoryAndSubCategory  = async(request,response)=>{
 export const  getProductDetails = async(request,response)=>{
     try {
         const { productId } = request.body 
-
-        const product = await ProductModel.findOne({ productId : productId })
+        console.log(productId,"raestdyfugiop75647867655647564564")
+        const product = await ProductModel.findOne({ productId : Number(productId) })
         console.log("-=-0-=00=",product)
 
         return response.json({

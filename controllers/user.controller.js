@@ -137,43 +137,75 @@ export async function verifyEmailController(request,response){
 export async function loginController(req, res) {
   try {
     const { email, password } = req.body;
-    if (!email || !password)
-      return res.status(400).json({ message: "Provide email and password", error: true, success: false });
+
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Provide email and password",
+        success: false
+      });
+    }
 
     const user = await UserModel.findOne({ email });
-    if (!user) return res.status(400).json({ message: "User not registered", error: true, success: false });
-    if (user.status !== "Active") return res.status(400).json({ message: "Contact Admin", error: true, success: false });
+    if (!user) {
+      return res.status(400).json({
+        message: "User not registered",
+        success: false
+      });
+    }
+
+    if (user.status !== "Active") {
+      return res.status(400).json({
+        message: "Contact Admin",
+        success: false
+      });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Check your password", error: true, success: false });
+    if (!isMatch) {
+      return res.status(400).json({
+        message: "Check your password",
+        success: false
+      });
+    }
 
-    const accessToken = jwt.sign({ user_id: user.user_id }, process.env.JWT_SECRET, { expiresIn: "1d" });
-    const refreshToken = jwt.sign({ user_id: user.user_id }, process.env.SECRET_KEY_REFRESH_TOKEN, { expiresIn: "7d" });
+    // ✅ Generate tokens
+    const accessToken = jwt.sign(
+      { user_id: user.user_id },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
-    await UserModel.findOneAndUpdate({ user_id: user.user_id }, { last_login_date: new Date() });
+    const refreshToken = jwt.sign(
+      { user_id: user.user_id },
+      process.env.SECRET_KEY_REFRESH_TOKEN,
+      { expiresIn: "7d" }
+    );
 
-    const cookiesOption = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-    };
+    // ✅ Update last login date
+    await UserModel.findOneAndUpdate(
+      { user_id: user.user_id },
+      { last_login_date: new Date() }
+    );
 
-    res.cookie("accessToken", accessToken, cookiesOption);
-    res.cookie("refreshToken", refreshToken, cookiesOption);
-    res.setHeader("Authorization", `Bearer ${accessToken}`);
-
+    // ✅ Send token in response (frontend will store in localStorage)
     return res.json({
-      message: "Login successfully",
-      error: false,
+      message: "Login successful",
       success: true,
       token: accessToken,
       refreshToken,
-      user: { user_id: user.user_id, email: user.email, role: user.role },
+      user: {
+        user_id: user.user_id,
+        email: user.email,
+        role: user.role
+      }
     });
 
   } catch (error) {
     console.error("Login error:", error);
-    return res.status(500).json({ message: error.message || error, error: true, success: false });
+    return res.status(500).json({
+      message: error.message || error,
+      success: false
+    });
   }
 }
 
