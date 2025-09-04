@@ -68,7 +68,7 @@ export const updateCategoryController = async(request,response)=>{
     try {
         const { categoryId ,name, image } = request.body 
         let update;
-        console.log("k34567890",categoryId)
+        // console.log("k34567890",categoryId)
         if(categoryId ==undefined){
         update = await CategoryModel.updateOne({
             categoryId : categoryId

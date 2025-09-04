@@ -6,7 +6,7 @@ import mongoose from "mongoose";
 
  export async function CashOnDeliveryOrderController(request,response){
     try {
-        const userId = request.userId // auth middleware 
+        const userId = request.user_id // auth middleware 
         const { list_items, totalAmt, addressId,subTotalAmt } = request.body 
 
         const payload = list_items.map(el => {

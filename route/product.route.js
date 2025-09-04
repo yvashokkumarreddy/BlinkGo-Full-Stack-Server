@@ -5,7 +5,7 @@ import { admin } from '../middleware/Admin.js'
 
 const productRouter = Router()
 
-productRouter.post("/create",admin,createProductController)
+productRouter.post('/create',admin,createProductController)
 productRouter.post('/get',getProductController)
 productRouter.post("/get-product-by-category",getProductByCategory)
 productRouter.post('/get-pruduct-by-category-and-subcategory',getProductByCategoryAndSubCategory)
