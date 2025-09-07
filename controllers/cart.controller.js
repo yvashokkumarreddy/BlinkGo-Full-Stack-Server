@@ -1,9 +1,7 @@
 import CartModel from "../models/cartproduct.model.js";
 import ProductModel from "../models/product.model.js";
-import CounterModel from "../models/counterModel.js"; // for auto-increment cartItemId
+import CounterModel from "../models/counterModel.js";
 
-
-// Add item to cart
 export const addToCartItemController = async (req, res) => {
   try {
     const { user_id, cartId, productId } = req.body;
@@ -15,34 +13,41 @@ export const addToCartItemController = async (req, res) => {
       });
     }
 
-    // ✅ Get product details (for price)
+    // Always define `cart` with let/const
+    let cart = await CartModel.findOne({ cartId, user_id });
+    if (!cart) {
+      cart = new CartModel({
+        cartId,
+        user_id,
+        items: [],
+      });
+    }
+
     const product = await ProductModel.findOne({ productId });
     if (!product) {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
 
-    // ✅ Find cart by cartId + user_id (double check ownership)
-    let cart = await CartModel.findOne({ user_id });
-    if (!cart) {
-      return res.status(404).json({ success: false, message: "Cart not found for this user" });
-    }
-
-    // ✅ Find max cartItemId inside this cart
-    const maxCartItemId = cart.items.length > 0
-      ? Math.max(...cart.items.map((i) => i.cartItemId))
-      : 0;
-
-    // ✅ Check if product already exists in cart
-    const existingItem = cart.items.find((i) => i.productId === productId);
+    // ✅ Check if product already in cart
+    const existingItem = cart.items.find((item) => item.productId === productId);
 
     if (existingItem) {
-      existingItem.quantity += 1; // increase qty if already in cart
+      // increment quantity if already exists
+      existingItem.quantity += 1;
     } else {
+      // find next cartItemId safely
+      const counter = await CounterModel.findOneAndUpdate(
+  { id: "cartItemId" },
+  { $inc: { seq: 1 } },
+  { new: true, upsert: true }
+);
+
       cart.items.push({
-        cartItemId: maxCartItemId + 1,
-        productId,
-        price: product.price,  // required
+        cartItemId: counter.seq,
+        productId: product.productId,
         quantity: 1,
+        price: product.price,
+        discount: product.discount || null,
       });
     }
 
@@ -57,16 +62,11 @@ export const addToCartItemController = async (req, res) => {
     console.error("Add to cart error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal Server Error",
+      message: error.message || "Something went wrong",
     });
   }
 };
 
-
-
-
-
-// GET CART ITEMS
 export const getCartItemController = async (req, res) => {
   try {
     const userId = req.user?.user_id;
@@ -78,7 +78,6 @@ export const getCartItemController = async (req, res) => {
       });
     }
 
-    // Fetch the user's cart
     const cart = await CartModel.findOne({ user_id: userId });
     if (!cart || cart.items.length === 0) {
       return res.json({
@@ -87,18 +86,17 @@ export const getCartItemController = async (req, res) => {
         data: [],
       });
     }
+    // console.log("cart====>",cart)
 
-    // Fetch products in parallel
     const itemsWithProductDetails = await Promise.all(
       cart.items.map(async (item) => {
         const product = await ProductModel.findOne({ productId: item.productId }).lean();
-
         return {
           cartItemId: item.cartItemId,
           quantity: item.quantity,
           price: item.price,
           discount: item.discount,
-          product: product || null, // renamed to `product` for clarity
+          product: product || null,
         };
       })
     );
@@ -118,30 +116,24 @@ export const getCartItemController = async (req, res) => {
   }
 };
 
-
-
-// ------------------- UPDATE CART ITEM QUANTITY -------------------
 export const updateCartItemQtyController = async (req, res) => {
   try {
     const userId = req.user?.user_id;
     const { cartItemId, quantity } = req.body;
-
-    if (!cartItemId || typeof quantity !== "number") {
-      return res.status(400).json({ success: false, message: "cartItemId and quantity are required" });
+    // console.log("reg__Body",req.body)
+    if (cartItemId === undefined || quantity === undefined) {
+      return res.status(400).json({ success: false, message: "cartItemId and quantity are required ok naaa" });
     }
 
-    // Find the user's cart
     const cart = await CartModel.findOne({ user_id: userId });
     if (!cart) return res.status(404).json({ success: false, message: "Cart not found" });
 
-    // Find the item inside the cart
-    const itemIndex = cart.items.findIndex(i => i.cartItemId === cartItemId);
+    const itemIndex = cart. items.findIndex((i) => i.cartItemId === Number(cartItemId));
     if (itemIndex === -1) {
       return res.status(404).json({ success: false, message: "Cart item not found" });
     }
 
-    // Update quantity
-    cart.items[itemIndex].quantity = quantity;
+    cart.items[itemIndex].quantity = Number(quantity);
     await cart.save();
 
     return res.json({
@@ -156,8 +148,6 @@ export const updateCartItemQtyController = async (req, res) => {
 };
 
 
-
-// ------------------- DELETE CART ITEM -------------------
 export const deleteCartItemQtyController = async (req, res) => {
   try {
     const userId = req.user?.user_id;
@@ -179,14 +169,7 @@ export const deleteCartItemQtyController = async (req, res) => {
       return res.status(404).json({ success: false, message: "Cart item not found" });
     }
 
-    // Remove item
     cart.items = cart.items.filter((i) => i.cartItemId !== cartItemIdNum);
-
-    // ✅ Reset numbering if cart becomes empty
-    if (cart.items.length === 0) {
-      cart.items = []; // clear cart fully, so next add starts from 1
-    }
-
     await cart.save();
 
     return res.json({
