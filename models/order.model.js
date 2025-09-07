@@ -1,9 +1,14 @@
 import mongoose from "mongoose";
 
 const orderSchema = new mongoose.Schema({
-    userId : {
-        type : mongoose.Schema.ObjectId,
-        ref : 'User'
+    user_id : {
+        type : Number,
+        ref : 'Customers'
+    },
+    order_no: {
+        type: Number,
+        required: true,
+        unique: true
     },
     orderId : {
         type : String,
@@ -25,10 +30,10 @@ const orderSchema = new mongoose.Schema({
     },
     payment_status : {
         type : String,
-        default : ""
+        default : "Pending"
     },
     delivery_address : {
-        type : mongoose.Schema.ObjectId,
+        type : Number,
         ref : 'address'
     },
     subTotalAmt : {

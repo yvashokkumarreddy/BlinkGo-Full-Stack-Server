@@ -1,51 +1,57 @@
 import Stripe from "../config/stripe.js";
+import AddressModel from "../models/address.model.js";
 import CartProductModel from "../models/cartproduct.model.js";
+import CounterModel from "../models/counterModel.js";
 import OrderModel from "../models/order.model.js";
 import UserModel from "../models/user.model.js";
 import mongoose from "mongoose";
 
- export async function CashOnDeliveryOrderController(request,response){
-    try {
-        const userId = request.user_id // auth middleware 
-        const { list_items, totalAmt, addressId,subTotalAmt } = request.body 
-
-        const payload = list_items.map(el => {
-            return({
-                userId : userId,
-                orderId : `ORD-${new mongoose.Types.ObjectId()}`,
-                productId : el.productId._id, 
-                product_details : {
-                    name : el.productId.name,
-                    image : el.productId.image
-                } ,
-                paymentId : "",
-                payment_status : "CASH ON DELIVERY",
-                delivery_address : addressId ,
-                subTotalAmt  : subTotalAmt,
-                totalAmt  :  totalAmt,
-            })
+export async function CashOnDeliveryOrderController(request,response){
+try {
+    const userId = request.user.user_id 
+    // console.log("user_iddd",userId)// auth middleware 
+    const { list_items, totalAmt, address_id,subTotalAmt } = request.body 
+    const counter = await CounterModel.findOneAndUpdate(
+      { id: "order_no" },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
+    const order_id = counter.seq+100
+    const payload = list_items.map(el => {
+        return({
+            user_id : userId,
+            order_no: order_id,
+            orderId : `#ORD-${order_id}`,
+            productId : el.product.productId, 
+            product_details : {
+                name : el.product.name,
+                image : el.product.image
+            } ,
+            paymentId : "",
+            payment_status : "CASH ON DELIVERY",
+            delivery_address : address_id ,
+            subTotalAmt  : subTotalAmt,
+            totalAmt  :  totalAmt,
         })
+    })
+    const generatedOrder = await OrderModel.insertMany(payload)
 
-        const generatedOrder = await OrderModel.insertMany(payload)
+    const removeCartItems = await CartProductModel.deleteMany({ user_id : userId })
+    const updateInUser = await UserModel.updateOne({ user_id : userId }, { shopping_cart : []})
+    return response.json({
+        success:true,
+        error:false,
+        data : generatedOrder,
+        address: address_id
+    })
+} catch (error) {
+    return response.status(500).json({
+        message : error.message || error ,
+        error : true,
+        success : false
+    })
+}
 
-        ///remove from the cart
-        const removeCartItems = await CartProductModel.deleteMany({ userId : userId })
-        const updateInUser = await UserModel.updateOne({ _id : userId }, { shopping_cart : []})
-
-        return response.json({
-            message : "Order successfully",
-            error : false,
-            success : true,
-            data : generatedOrder
-        })
-
-    } catch (error) {
-        return response.status(500).json({
-            message : error.message || error ,
-            error : true,
-            success : false
-        })
-    }
 }
 
 export const pricewithDiscount = (price,dis = 1)=>{
@@ -69,7 +75,7 @@ export async function paymentController(request,response){
                         name : item.productId.name,
                         images : item.productId.image,
                         metadata : {
-                            productId : item.productId._id
+                            productId : item.product.productId
                         }
                     },
                     unit_amount : pricewithDiscount(item.productId.price,item.productId.discount) * 100   
@@ -188,9 +194,10 @@ export async function webhookStripe(request,response){
 
 export async function getOrderDetailsController(request,response){
     try {
-        const userId = request.userId // order id
+        const userId = request.user.user_id 
 
-        const orderlist = await OrderModel.find({ userId : userId }).sort({ createdAt : -1 }).populate('delivery_address')
+        const orderlist = await OrderModel.find({ user_id : userId }).sort({ createdAt : -1 })
+        // .populate({address_id:Number(`$delivery_address`)})
 
         return response.json({
             message : "order list",
@@ -205,4 +212,21 @@ export async function getOrderDetailsController(request,response){
             success : false
         })
     }
+}
+
+export async function deleteOrder(req,res,next) {
+    const userId = req.user.user_id
+    const {order_no} = req.body
+try{
+    const order = OrderModel.findOne({order_no,user_id: userId})
+
+    if(!order){
+        res.status(400).json({status: 5, message: "order no not found"})
+    }
+    await OrderModel.deleteOne({order_no})
+    res.status(200).json({status: 1, data:[{"order_deleted": order_no}]})
+  } catch(error){
+    console.log(error)
+    next()
+  }
 }
