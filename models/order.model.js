@@ -12,8 +12,7 @@ const orderSchema = new mongoose.Schema({
     },
     orderId : {
         type : String,
-        required : [true, "Provide orderId"],
-        unique : true
+        required : [true, "Provide orderId"]
     },
     productId : {
         type : Number,
@@ -51,7 +50,7 @@ const orderSchema = new mongoose.Schema({
 },{
     timestamps : true
 })
-
+orderSchema.index({ user_id: 1, "order_no": 1 }, { unique: true });
 const OrderModel = mongoose.model('order',orderSchema)
 
 export default OrderModel

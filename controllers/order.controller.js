@@ -7,52 +7,58 @@ import UserModel from "../models/user.model.js";
 import mongoose from "mongoose";
 
 export async function CashOnDeliveryOrderController(request,response){
-try {
+  try {
     const userId = request.user.user_id 
-    // console.log("user_iddd",userId)// auth middleware 
-    const { list_items, totalAmt, address_id,subTotalAmt } = request.body 
+    const { list_items, totalAmt, address_id, subTotalAmt } = request.body 
+
     const counter = await CounterModel.findOneAndUpdate(
       { id: "order_no" },
       { $inc: { seq: 1 } },
       { new: true, upsert: true }
     );
-    const order_id = counter.seq+100
-    const payload = list_items.map(el => {
-        return({
-            user_id : userId,
-            order_no: order_id,
-            orderId : `#ORD-${order_id}`,
-            productId : el.product.productId, 
-            product_details : {
-                name : el.product.name,
-                image : el.product.image
-            } ,
-            paymentId : "",
-            payment_status : "CASH ON DELIVERY",
-            delivery_address : address_id ,
-            subTotalAmt  : subTotalAmt,
-            totalAmt  :  totalAmt,
-        })
-    })
-    const generatedOrder = await OrderModel.insertMany(payload)
 
-    const removeCartItems = await CartProductModel.deleteMany({ user_id : userId })
-    const updateInUser = await UserModel.updateOne({ user_id : userId }, { shopping_cart : []})
+    const order_id = counter.seq + 100
+    const orderData = {
+      user_id : userId,
+      order_no: order_id,
+      orderId : `#ORD-${order_id}`,
+      items : list_items.map(el => ({
+        productId : el.product.productId,
+        product_details : {
+          name : el.product.name,
+          image : el.product.image
+        },
+        quantity: el.quantity || 1
+      })),
+      paymentId : "",
+      payment_status : "CASH ON DELIVERY",
+      delivery_address : address_id,
+      subTotalAmt  : subTotalAmt,
+      totalAmt  : totalAmt,
+    }
+
+    const generatedOrder = await OrderModel.create(orderData)
+
+    await CartProductModel.deleteMany({ user_id : userId })
+    await UserModel.updateOne({ user_id : userId }, { shopping_cart : []})
+
     return response.json({
-        success:true,
-        error:false,
-        data : generatedOrder,
-        address: address_id
+      success: true,
+      error: false,
+      data : generatedOrder,
+      images:list_items,
+      address: address_id
     })
-} catch (error) {
+
+  } catch (error) {
     return response.status(500).json({
-        message : error.message || error ,
-        error : true,
-        success : false
+      message : error.message || error ,
+      error : true,
+      success : false
     })
+  }
 }
 
-}
 
 export const pricewithDiscount = (price,dis = 1)=>{
     const discountAmout = Math.ceil((Number(price) * Number(dis)) / 100)
