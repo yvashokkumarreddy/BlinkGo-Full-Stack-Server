@@ -4,7 +4,7 @@ import CounterModel from "./counterModel.js";
 const categorySchema = new mongoose.Schema({
   name: { type: String, default: "" },
   image: { type: String, default: "" },
-  categoryId: { type: Number, unique: true },
+  categoryId: { type: Number, required: true },
   parentCategory: { type: Number, default: null },
 }, { timestamps: true });
 
