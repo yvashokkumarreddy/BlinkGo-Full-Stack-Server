@@ -1,56 +1,74 @@
 import mongoose from "mongoose";
 
-const orderSchema = new mongoose.Schema({
-    user_id : {
-        type : Number,
-        ref : 'Customers'
+const itemSchema = new mongoose.Schema(
+  {
+    productId: {
+      type: Number,
+      ref: "product",
+      required: true,
+    },
+    product_details: {
+      name: String,
+      image: Array,
+    },
+    quantity: {
+      type: Number,
+      default: 1,
+    },
+    subTotalAmt: {
+      type: Number,
+      default: 0,
+    },
+  },
+  { _id: false }
+);
+
+const orderSchema = new mongoose.Schema(
+  {
+    user_id: {
+      type: Number,
+      ref: "Customers",
+      required: true,
     },
     order_no: {
-        type: Number,
-        required: true,
-        unique: true
+      type: Number,
+      required: true,
     },
-    orderId : {
-        type : String,
-        required : [true, "Provide orderId"]
+    orderId: {
+      type: String,
+      required: [true, "Provide orderId"],
     },
-    productId : {
-        type : Number,
-        ref : "product",
-        require: true
+    items: [itemSchema], // 👈 Multiple products in one order
+    paymentId: {
+      type: String,
+      default: "",
     },
-    product_details : {
-        name : String,
-        image : Array,
+    payment_status: {
+      type: String,
+      default: "Pending",
     },
-    paymentId : {
-        type : String,
-        default : ""
+    delivery_address: {
+      type: Number,
+      ref: "address",
+      required: true,
     },
-    payment_status : {
-        type : String,
-        default : "Pending"
+    totalAmt: {
+      type: Number,
+      default: 0,
     },
-    delivery_address : {
-        type : Number,
-        ref : 'address'
+    invoice_receipt: {
+      type: String,
+      default: "",
     },
-    subTotalAmt : {
-        type : Number,
-        default : 0
-    },
-    totalAmt : {
-        type : Number,
-        default : 0
-    },
-    invoice_receipt : {
-        type : String,
-        default : ""
-    }
-},{
-    timestamps : true
-})
-orderSchema.index({ user_id: 1, "order_no": 1 }, { unique: true });
-const OrderModel = mongoose.model('order',orderSchema)
+  },
+  {
+    timestamps: true,
+  }
+);
 
-export default OrderModel
+// Ensure order_no is unique per user
+orderSchema.index({ user_id: 1, order_no: 1 }, { unique: true });
+
+const OrderModel = mongoose.model("order", orderSchema);
+
+export default OrderModel;
