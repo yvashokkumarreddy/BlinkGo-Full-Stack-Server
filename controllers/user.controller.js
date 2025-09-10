@@ -7,7 +7,7 @@ import genertedRefreshToken from '../utils/generatedRefreshToken.js'
 import uploadImageClodinary from '../utils/uploadImageClodinary.js'
 import generatedOtp from '../utils/generatedOtp.js'
 import forgotPasswordTemplate from '../utils/forgotPasswordTemplate.js'
-import jwt from 'jsonwebtoken
+import jwt from 'jsonwebtoken'
 import CounterModel from '../models/counterModel.js'
 import bcryptjs from 'bcryptjs'
 
