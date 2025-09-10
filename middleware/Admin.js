@@ -3,9 +3,9 @@ import UserModel from "../models/user.model.js"
 
 export const admin = async(request,response,next)=>{
     try {
-       const  userId = request.userId
+       const  userId = request.user_id
 
-       const user = await UserModel.findById(userId)
+       const user = await UserModel.findById({userId})
 
        if(user.role !== 'ADMIN'){
             return response.status(400).json({

@@ -5,54 +5,187 @@ import CounterModel from "../models/CounterModel.js";
 import OrderModel from "../models/order.model.js";
 import UserModel from "../models/user.model.js";
 import mongoose from "mongoose";
+import AdminOrderModel from "../models/orderadmin.model.js";
+export async function CashOnDeliveryOrderController(request, response) {
+  try {
+    const userId = request.user.user_id;
+    const { list_items, totalAmt, address_id, subTotalAmt } = request.body;
 
-export async function CashOnDeliveryOrderController(request,response){
-try {
-    const userId = request.user.user_id 
-    // console.log("user_iddd",userId)// auth middleware 
-    const { list_items, totalAmt, address_id,subTotalAmt } = request.body 
+    console.log("order items list : -", list_items);
+
     const counter = await CounterModel.findOneAndUpdate(
       { id: "order_no" },
       { $inc: { seq: 1 } },
       { new: true, upsert: true }
     );
-    const order_id = counter.seq+100
-    const payload = list_items.map(el => {
-        return({
-            user_id : userId,
-            order_no: order_id,
-            orderId : `#ORD-${order_id}`,
-            productId : el.product.productId, 
-            product_details : {
-                name : el.product.name,
-                image : el.product.image
-            } ,
-            paymentId : "",
-            payment_status : "CASH ON DELIVERY",
-            delivery_address : address_id ,
-            subTotalAmt  : subTotalAmt,
-            totalAmt  :  totalAmt,
-        })
-    })
-    const generatedOrder = await OrderModel.insertMany(payload)
 
-    const removeCartItems = await CartProductModel.deleteMany({ user_id : userId })
-    const updateInUser = await UserModel.updateOne({ user_id : userId }, { shopping_cart : []})
+    const order_id = counter.seq + 100
+    const orderData = {
+      user_id : userId,
+      order_no: order_id,
+      orderId : `#ORD-${order_id}`,
+      items : list_items.map((el) => ({
+        productId: el.product?.productId || el.productId, // support both shapes
+        product_details: {
+          name: el.product?.name || el.name,
+          image: el.product?.image || el.image || [],
+        },
+        quantity: el.quantity || 1,
+        subTotalAmt: el.subTotalAmt || (el.quantity || 1) * (el.product?.price || 0),
+      })),
+      paymentId: "",
+      payment_status: "CASH ON DELIVERY",
+      delivery_address: address_id,
+      totalAmt: totalAmt,
+    };
+
+    const generatedOrder = await OrderModel.create(orderData);
+    const address = await AddressModel.findOne({ address_id });
+    if (!address) {
+      return res.status(400).json({ success: false, error: true, message: "Address not found" });
+    }
+    const adminItems = list_items.map(el => ({
+      productId: el.product.productId, // numeric
+      quantity: el.quantity || 1,
+      priceAtPurchase: el.price - (el.discount || 0),
+      priceWithOutDiscount:el.price,
+      product_details: {
+          name: el.product?.name || el.name,
+          image: el.product?.image || el.image || [],
+        },
+    }));
+
+    const adminOrder = await AdminOrderModel.create({
+      user_id: userId,
+      order_Id: `#ORD-${order_id}`, // numeric
+      orderItems: adminItems,
+      shippingAddress: {
+        fullAddress: address.address_line,
+        city: address.city,
+        state: address.state,
+        country: address.country,
+        pincode: address.pincode,
+        phone: address.mobile,
+      },
+      paymentMode: "COD",
+      totalAmount: totalAmt,
+      paymentStatus: "Pending",
+      status: "Pending",
+    });
+    // cleanup cart after placing order
+    await CartProductModel.deleteMany({ user_id: userId });
+    await UserModel.updateOne({ user_id: userId }, { shopping_cart: [] });
+
     return response.json({
-        success:true,
-        error:false,
-        data : generatedOrder,
-        address: address_id
-    })
-} catch (error) {
+      success: true,
+      error: false,
+      data: generatedOrder,
+      address: address_id,
+    });
+  } catch (error) {
     return response.status(500).json({
-        message : error.message || error ,
-        error : true,
-        success : false
-    })
+      message: error.message || error,
+      error: true,
+      success: false,
+    });
+  }
 }
 
-}
+
+
+
+// export async function CashOnDeliveryOrderController(req, res) {
+//   try {
+//     const userId = req.user.user_id; // numeric user ID
+//     const { list_items, totalAmt, address_id, subTotalAmt } = req.body;
+
+//     // Fetch full address
+//     const address = await AddressModel.findOne({ address_id });
+//     if (!address) {
+//       return res.status(400).json({ success: false, error: true, message: "Address not found" });
+//     }
+
+//     // Generate unique order number
+//     const counter = await CounterModel.findOneAndUpdate(
+//       { id: "order_no" },
+//       { $inc: { seq: 1 } },
+//       { new: true, upsert: true }
+//     );
+//     const order_no = counter.seq + 100;
+//     const orderId = `#ORD-${order_no}`;
+
+//     // ===== User Order =====
+//     const userItems = list_items.map(el => ({
+//       productId: el.product.productId, // numeric
+//       product_details: {
+//         name: el.product.name,
+//         image: el.product.image,
+//       },
+//       quantity: el.quantity || 1,
+//       subTotalAmt: el.price - (el.discount || 0),
+//     }));
+
+//     const userOrder = await OrderModel.create({
+//       user_id: userId,
+//       order_no,
+//       orderId,
+//       items: userItems,
+//       paymentId: "",
+//       payment_status: "CASH ON DELIVERY",
+//       delivery_address: {
+//         address_line: address.address_line,
+//         city: address.city,
+//         state: address.state,
+//         country: address.country,
+//         pincode: address.pincode,
+//         mobile: address.mobile,
+//       },
+//       subTotalAmt,
+//       totalAmt,
+//     });
+
+//     // ===== Admin Order =====
+//     const adminItems = list_items.map(el => ({
+//       productId: el.product.productId, // numeric
+//       quantity: el.quantity || 1,
+//       priceAtPurchase: el.price - (el.discount || 0),
+//     }));
+
+//     // const adminOrder = await AdminOrderModel.create({
+//     //   user_id: userId,
+//     //   orderId: orderId, // numeric
+//     //   cartItems: adminItems,
+//     //   shippingAddress: {
+//     //     fullAddress: address.address_line,
+//     //     city: address.city,
+//     //     state: address.state,
+//     //     country: address.country,
+//     //     pincode: address.pincode,
+//     //     phone: address.mobile,
+//     //   },
+//     //   paymentMode: "COD",
+//     //   totalAmount: totalAmt,
+//     //   paymentStatus: "Pending",
+//     //   status: "Pending",
+//     // });
+
+//     // Clear cart
+//     await CartProductModel.deleteMany({ user_id: userId });
+//     await UserModel.updateOne({ user_id: userId }, { shopping_cart: [] });
+
+//     return res.json({
+//       success: true,
+//       error: false,
+//       message: "Order placed successfully",
+//       userOrder,
+//       adminOrder
+//     });
+
+//   } catch (error) {
+//     console.error(error);
+//     return res.status(500).json({ success: false, error: true, message: error.message || error });
+//   }
+// }
 
 export const pricewithDiscount = (price,dis = 1)=>{
     const discountAmout = Math.ceil((Number(price) * Number(dis)) / 100)
@@ -192,26 +325,44 @@ export async function webhookStripe(request,response){
 }
 
 
-export async function getOrderDetailsController(request,response){
-    try {
-        const userId = request.user.user_id 
+export async function getOrderDetailsController(req, res) {
+  try {
+    const userId = req.user.user_id;
 
-        const orderlist = await OrderModel.find({ user_id : userId }).sort({ createdAt : -1 })
-        // .populate({address_id:Number(`$delivery_address`)})
+    // 1. Fetch only this user's orders
+    const orders = await OrderModel.find({ user_id: userId }).lean();
 
-        return response.json({
-            message : "order list",
-            data : orderlist,
-            error : false,
-            success : true
-        })
-    } catch (error) {
-        return response.status(500).json({
-            message : error.message || error,
-            error : true,
-            success : false
-        })
+    if (!orders.length) {
+      return res.json({ success: true, data: [] });
     }
+
+    // 2. Collect address_ids from only this user’s orders
+    const addressIds = [...new Set(orders.map(o => o.delivery_address))];
+
+    // 3. Fetch address details for those ids
+    const addresses = await AddressModel.find({
+      address_id: { $in: addressIds }
+    }).lean();
+
+    // 4. Build a lookup map
+    const addressMap = {};
+    addresses.forEach(addr => {
+      addressMap[addr.address_id] = addr;
+    });
+
+    // 5. Attach full address to each order
+    const ordersWithAddress = orders.map(order => ({
+      ...order,
+      delivery_address: addressMap[order.delivery_address] || null
+    }));
+
+    return res.json({
+      success: true,
+      data: ordersWithAddress
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
 }
 
 export async function deleteOrder(req,res,next) {

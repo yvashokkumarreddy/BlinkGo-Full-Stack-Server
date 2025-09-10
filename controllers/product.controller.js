@@ -77,7 +77,7 @@ export const getProductController = async(request,response)=>{
         const skip = (page - 1) * limit
 
         const [data,totalCount] = await Promise.all([
-            ProductModel.find(query).sort({createdAt : -1 }).skip(skip).limit(limit).populate('category subCategory'),
+            ProductModel.find(query).sort({createdAt : -1 }).skip(skip).limit(limit).populate('Category subCategory'),
             ProductModel.countDocuments(query)
         ])
 
@@ -203,7 +203,6 @@ export const  getProductDetails = async(request,response)=>{
     }
 }
 
-//update product
 export const updateProductDetails = async(request,response)=>{
     try {
         const { productId } = request.body 
@@ -236,7 +235,6 @@ export const updateProductDetails = async(request,response)=>{
     }
 }
 
-//delete product
 export const deleteProductDetails = async(request,response)=>{
     try {
         const { productId } = request.body 
@@ -266,48 +264,44 @@ export const deleteProductDetails = async(request,response)=>{
     }
 }
 
-//search product
-export const searchProduct = async(request,response)=>{
-    try {
-        let { search, page , limit } = request.body 
+export const searchProduct = async (req, res) => {
+  try {
+    let { search, page, limit } = req.body;
 
-        if(!page){
-            page = 1
-        }
-        if(!limit){
-            limit  = 10
-        }
+    page = page ? parseInt(page) : 1;
+    limit = limit ? parseInt(limit) : 10;
 
-        const query = search ? {
-            $text : {
-                $search : search
-            }
-        } : {}
+    const skip = (page - 1) * limit;
 
-        const skip = ( page - 1) * limit
+    // Case-insensitive search on product name
+    const query = search
+      ? { name: { $regex: search, $options: "i" } }
+      : {};
 
-        const [data,dataCount] = await Promise.all([
-            ProductModel.find(query).sort({ createdAt  : -1 }).skip(skip).limit(limit).populate('category subCategory'),
-            ProductModel.countDocuments(query)
-        ])
+    const [data, totalCount] = await Promise.all([
+      ProductModel.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      ProductModel.countDocuments(query),
+    ]);
 
-        return response.json({
-            message : "Product data",
-            error : false,
-            success : true,
-            data : data,
-            totalCount :dataCount,
-            totalPage : Math.ceil(dataCount/limit),
-            page : page,
-            limit : limit 
-        })
-
-
-    } catch (error) {
-        return response.status(500).json({
-            message : error.message || error,
-            error : true,
-            success : false
-        })
-    }
-}
+    return res.json({
+      message: "Product data",
+      success: true,
+      error: false,
+      data: data,
+      totalCount: totalCount,
+      totalPage: Math.ceil(totalCount / limit),
+      page: page,
+      limit: limit,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: error.message || "Server Error",
+      success: false,
+      error: true,
+    });
+  }
+};

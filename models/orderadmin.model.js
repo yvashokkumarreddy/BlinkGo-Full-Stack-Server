@@ -1,17 +1,25 @@
 import mongoose from 'mongoose'
 
 const orderAdminModel = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+  user_id: {
+    type: Number,
+    ref: 'Customers',
     required: true,
   },
-  cartItems: [
+  order_Id: {
+      type: String,
+      required: true,
+    },
+  orderItems: [
     {
       productId: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: Number,
         ref: 'Product',
       },
+      product_details: {
+      name: String,
+      image: Array,
+    },
       quantity: {
         type: Number,
         required: true,
@@ -20,6 +28,10 @@ const orderAdminModel = new mongoose.Schema({
       priceAtPurchase: {
         type: Number,
         required: true,
+      },
+      priceWithOutDiscount: {
+        type: Number,
+        required: true
       }
     }
   ],
@@ -58,4 +70,4 @@ const orderAdminModel = new mongoose.Schema({
   timestamps: true
 })
 
-export default mongoose.model('Order', orderAdminModel)
+export default mongoose.model('AdminOrders', orderAdminModel)
