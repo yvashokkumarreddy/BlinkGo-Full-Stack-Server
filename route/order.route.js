@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import auth from '../middleware/auth.js'
-import { CashOnDeliveryOrderController, deleteOrder, getAllOrdersController, getOrderDetailsController, paymentController, webhookStripe } from '../controllers/order.controller.js'
+import { CashOnDeliveryOrderController, deleteOrder, getOrderDetailsController, paymentController, webhookStripe } from '../controllers/order.controller.js'
 
 const orderRouter = Router()
 
