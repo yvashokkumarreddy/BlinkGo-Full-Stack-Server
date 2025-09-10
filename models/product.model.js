@@ -14,7 +14,7 @@ const productSchema = new mongoose.Schema(
     category: [
       {
         type: mongoose.Schema.Types.Mixed, // you can change to ObjectId if you have a proper category collection
-        ref: "category",
+        ref: "Category",
       },
     ],
     subCategory: [
