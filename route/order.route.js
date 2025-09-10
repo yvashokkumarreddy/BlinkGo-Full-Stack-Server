@@ -9,6 +9,6 @@ orderRouter.post('/checkout',paymentController)
 orderRouter.post('/webhook',webhookStripe)
 orderRouter.get("/order-list",auth,getOrderDetailsController)
 orderRouter.post('/delete',auth,deleteOrder)
-orderRouter.post('/all-orders',auth,getAllOrdersController)
+//orderRouter.post('/all-orders',auth,getAllOrdersController)
 
 export default orderRouter 
