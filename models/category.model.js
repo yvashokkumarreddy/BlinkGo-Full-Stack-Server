@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import CounterModel from "./counterModel.js";
+import CounterModel from "./CounterModel.js";
 
 const categorySchema = new mongoose.Schema({
   name: { type: String, default: "" },
