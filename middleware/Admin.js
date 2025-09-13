@@ -3,9 +3,9 @@ import UserModel from "../models/user.model.js"
 
 export const admin = async(request,response,next)=>{
     try {
-       const  userId = request.user_id
-
-       const user = await UserModel.findById({userId})
+       const  userId = request.user.user_id
+       
+       const user = await UserModel.findOne({user_id:userId})
 
        if(user.role !== 'ADMIN'){
             return response.status(400).json({
@@ -18,6 +18,7 @@ export const admin = async(request,response,next)=>{
        next()
 
     } catch (error) {
+        next(error)
         return response.status(500).json({
             message : "Permission denial",
             error : true,
