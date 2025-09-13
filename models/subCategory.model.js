@@ -32,21 +32,21 @@ const subCategorySchema = new mongoose.Schema(
 );
 
 // Pre-save hook to auto-increment subCategoryId
-subCategorySchema.pre("save", async function (next) {
-  if (this.isNew) {
-    try {
-      const counter = await CounterModel.findByIdAndUpdate(
-        { subcategoryId: "subCategoryId" }, // counter key for subcategories
-        { $inc: { seq: 1 } },
-        { new: true, upsert: true }
-      );
-      this.subCategoryId = counter.seq;
-    } catch (err) {
-      return next(err);
-    }
-  }
-  next();
-});
+// subCategorySchema.pre("save", async function (next) {
+//   if (this.isNew) {
+//     try {
+//       const counter = await CounterModel.findByIdAndUpdate(
+//         { id: "subCategoryId" }, // counter key for subcategories
+//         { $inc: { seq: 1 } },
+//         { new: true, upsert: true }
+//       );
+//       this.subCategoryId = counter.seq;
+//     } catch (err) {
+//       return next(err);
+//     }
+//   }
+//   next();
+// });
 
 const SubCategoryModel = mongoose.model("subCategory", subCategorySchema);
 

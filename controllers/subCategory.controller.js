@@ -2,9 +2,9 @@ import SubCategoryModel from "../models/subCategory.model.js";
 import CategoryModel from "../models/category.model.js";
 import ProductModel from "../models/product.model.js";
 
-export const AddSubCategoryController = async(request,response)=>{
+export const AddSubCategoryController = async(request,response,next)=>{
     try {
-        const { name, image, category } = request.body 
+        const { name, image, category, categoryId } = request.body 
 
         if(!name && !image && !category[0] ){
             return response.status(400).json({
@@ -13,11 +13,15 @@ export const AddSubCategoryController = async(request,response)=>{
                 success : false
             })
         }
-
+         const lastCategory = await SubCategoryModel.findOne().sort({subCategoryId: -1});
+        console.log("lastCtegory", lastCategory.subCategoryId)
+        const sub_category_id = lastCategory?lastCategory.subCategoryId + 1 : 1;
         const payload = {
             name,
             image,
-            category
+            category,
+            subCategoryId: sub_category_id,
+            categoryId
         }
 
         const createSubCategory = new SubCategoryModel(payload)
@@ -31,6 +35,7 @@ export const AddSubCategoryController = async(request,response)=>{
         })
 
     } catch (error) {
+      next(error)
         return response.status(500).json({
             message : error.message || error,
             error : true,
@@ -149,7 +154,7 @@ export const assignSubCategoryIds = async () => {
 export const updateSubCategoryController = async (request, response) => {
   try {
     const { subCategoryId, name, image, categoryId } = request.body;
-
+    console.log("request body",request.body)
     // find using your custom field, not Mongo _id
     const checkSub = await SubCategoryModel.findOne({ subCategoryId });
 
@@ -183,23 +188,39 @@ export const updateSubCategoryController = async (request, response) => {
 };
 
 
-export const deleteSubCategoryController = async(request,response)=>{
-    try {
-        const { subCategoryId } = request.body 
-        // console.log("Id",subCategoryId)
-        const deleteSub = await SubCategoryModel.findByIdAndDelete(subCategoryId)
+export const deleteSubCategoryController = async (req, res) => {
+  try {
+    const { subCategoryId } = req.body;
 
-        return response.json({
-            message : "Delete successfully",
-            data : deleteSub,
-            error : false,
-            success : true
-        })
-    } catch (error) {
-        return response.status(500).json({
-            message : error.message || error,
-            error : true,
-            success : false
-        })
+    if (!subCategoryId) {
+      return res.status(400).json({
+        message: "subCategoryId is required",
+        error: true,
+        success: false,
+      });
     }
-}
+
+    const deleted = await SubCategoryModel.findOneAndDelete({ subCategoryId });
+
+    if (!deleted) {
+      return res.status(404).json({
+        message: "SubCategory not found",
+        error: true,
+        success: false,
+      });
+    }
+
+    return res.json({
+      message: "SubCategory deleted successfully",
+      error: false,
+      success: true,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || error,
+      error: true,
+      success: false,
+    });
+  }
+};
+
