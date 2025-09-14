@@ -1,12 +1,14 @@
 import ProductModel from "../models/product.model.js";
 
-export const createProductController = async(request,response)=>{
+export const createProductController = async(request,response,next)=>{
     try {
         const { 
             name ,
             image ,
             category,
             subCategory,
+            categoryId,
+            subCategoryId,
             unit,
             stock,
             price,
@@ -15,18 +17,23 @@ export const createProductController = async(request,response)=>{
             more_details,
         } = request.body 
 
-        if(!name || !image[0] || !category[0] || !subCategory[0] || !unit || !price || !description ){
+        if(!name || !image[0]  ||  !unit || !price || !description ){
             return response.status(400).json({
                 message : "Enter required fields",
                 error : true,
                 success : false
             })
         }
-
+        const lastCategory = await ProductModel.findOne().sort({productId: -1});
+                console.log("lastCtegory", lastCategory.productId)
+                const sub_category_id = lastCategory?lastCategory.productId + 1 : 1;
         const product = new ProductModel({
             name ,
             image ,
             category,
+            productId: sub_category_id,
+            categoryId,
+            subCategoryId,
             subCategory,
             unit,
             stock,
@@ -46,6 +53,7 @@ export const createProductController = async(request,response)=>{
         });
 
     } catch (error) {
+        next(error)
         return response.status(500).json({
             message : error.message || error,
             error : true,
@@ -77,7 +85,9 @@ export const getProductController = async(request,response)=>{
         const skip = (page - 1) * limit
 
         const [data,totalCount] = await Promise.all([
-            ProductModel.find(query).sort({createdAt : -1 }).skip(skip).limit(limit).populate('Category subCategory'),
+            ProductModel.find(query).sort({createdAt : -1 }).skip(skip).limit(limit)
+            // .populate('Category')
+            ,
             ProductModel.countDocuments(query)
         ])
 

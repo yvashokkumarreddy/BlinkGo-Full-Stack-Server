@@ -1,6 +1,7 @@
 import CategoryModel from "../models/category.model.js";
 import SubCategoryModel from "../models/subCategory.model.js";
 import ProductModel from "../models/product.model.js";
+import CounterModel from "../models/counterModel.js";
 
 export const AddCategoryController = async(request,response)=>{
     try {
@@ -14,9 +15,14 @@ export const AddCategoryController = async(request,response)=>{
             })
         }
 
+        const lastCategory = await CategoryModel.findOne().sort({categoryId: -1});
+        console.log("lastCtegory", lastCategory.categoryId)
+        const category_id = lastCategory?lastCategory.categoryId + 1 : 1;
+        // console.log(counter) 
         const addCategory = new CategoryModel({
             name,
-            image
+            image,
+            categoryId: category_id
         })
 
         const saveCategory = await addCategory.save()

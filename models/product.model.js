@@ -36,28 +36,28 @@ const productSchema = new mongoose.Schema(
 );
 
 // Pre-save hook for auto-increment productId
-productSchema.pre("save", async function (next) {
-  if (this.isNew) {
-    try {
-      const counter = await CounterModel.findByIdAndUpdate(
-        { id: "productId" }, // Counter document _id for products
-        { $inc: { seq: 1 } },
-        { new: true, upsert: true }
-      );
+// productSchema.pre("save", async function (next) {
+//   if (this.isNew) {
+//     try {
+//       const counter = await CounterModel.findByIdAndUpdate(
+//         { id: "productId" }, // Counter document _id for products
+//         { $inc: { seq: 1 } },
+//         { new: true, upsert: true }
+//       );
 
-      this.productId = counter.seq;
-    } catch (err) {
-      return next(err);
-    }
-  }
-  next();
-});
+//       this.productId = counter.seq;
+//     } catch (err) {
+//       return next(err);
+//     }
+//   }
+//   next();
+// });
 
-// Text index for search
-productSchema.index(
-  { name: "text", description: "text" },
-  { weights: { name: 10, description: 5 } }
-);
+// // Text index for search
+// productSchema.index(
+//   { name: "text", description: "text" },
+//   { weights: { name: 10, description: 5 } }
+// );
 
 // ✅ Fix OverwriteModelError
 const ProductModel = mongoose.models.Product || mongoose.model("Product", productSchema);
