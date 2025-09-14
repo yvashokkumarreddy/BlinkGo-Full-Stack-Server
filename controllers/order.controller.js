@@ -1,7 +1,7 @@
 import Stripe from "../config/stripe.js";
 import AddressModel from "../models/address.model.js";
 import CartProductModel from "../models/cartproduct.model.js";
-import CounterModel from "../models/counterModel.js";
+import CounterModel from "../models/CounterModel.js";
 import OrderModel from "../models/order.model.js";
 import UserModel from "../models/user.model.js";
 import mongoose from "mongoose";
@@ -379,16 +379,5 @@ try{
   } catch(error){
     console.log(error)
     next()
-  }
-}
-
-export async function getAllOrdersController(req, res) {
-  try {
-    const orders = await AdminOrderModel.find().lean().sort({createdby:-1});
-console.log("all orders",orders)
-
-    return res.json({ success: true, orders: orders });
-  } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
   }
 }

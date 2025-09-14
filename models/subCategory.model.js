@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import CounterModel from "./counterModel.js"; // make sure you have a counter collection
+import CounterModel from "./CounterModel.js"; // make sure you have a counter collection
 
 const subCategorySchema = new mongoose.Schema(
   {

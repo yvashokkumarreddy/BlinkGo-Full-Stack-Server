@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import CounterModel from "./counterModel.js";
+import CounterModel from "./CounterModel.js";
 
 const addressSchema = new mongoose.Schema(
   {
