@@ -381,3 +381,23 @@ try{
     next()
   }
 }
+
+export async function getAllOrdersController(req, res, next){
+  try {
+    const orders = await AdminOrderModel.find().lean();
+
+    // const normalized = orders.map(order => ({
+    //   orderId: order._id, // admin doesn’t have orderId, fallback to _id
+    //   cartItems: order.cartItems || [],
+    //   shippingAddress: order.shippingAddress || null,
+    //   paymentStatus: order.paymentStatus,
+    //   status: order.status,
+    //   totalAmount: order.totalAmount,
+    //   createdAt: order.createdAt,
+    // }));
+
+    return res.json({ success: true, orders: orders });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+}
