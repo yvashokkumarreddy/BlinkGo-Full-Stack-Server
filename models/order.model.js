@@ -15,26 +15,26 @@ const itemSchema = new mongoose.Schema(
       type: Number,
       default: 1,
     },
-      discount: {
-        type: Number,
-        derault: 1
-      },
-      price:{
-        type: Number,
-        default: 0
-      },
-    subTotalAmt: {
-      type: Number, 
+    discount: {
+      type: Number,
+      default: 1, // fixed typo
+    },
+    price: {
+      type: Number,
       default: 0,
     },
-    delivery_date:{
-      type: Date,
-      default: null
+    subTotalAmt: {
+      type: Number,
+      default: 0,
     },
-    order_date:{
-      type:Date,
-      default: null
-    }
+    delivery_date: {
+      type: Date,
+      default: null,
+    },
+    order_date: {
+      type: Date,
+      default: null,
+    },
   },
   { _id: false }
 );
@@ -54,7 +54,7 @@ const orderSchema = new mongoose.Schema(
       type: String,
       required: [true, "Provide orderId"],
     },
-    items: [itemSchema], // 👈 Multiple products in one order
+    items: [itemSchema], // multiple products in one order
     paymentId: {
       type: String,
       default: "",
@@ -62,6 +62,11 @@ const orderSchema = new mongoose.Schema(
     payment_status: {
       type: String,
       default: "Pending",
+    },
+    status: {
+      type: String,
+      default: "Pending", // <-- New field added
+      enum: ["Pending", "Confirmed", "Shipped", "Out for Delivery", "Delivered", "Cancelled"],
     },
     delivery_address: {
       type: Number,
@@ -85,6 +90,6 @@ const orderSchema = new mongoose.Schema(
 // Ensure order_no is unique per user
 orderSchema.index({ user_id: 1, order_no: 1 }, { unique: true });
 
-const OrderModel = mongoose.model("order", orderSchema);
+const OrderModel =mongoose.models.userOrders || mongoose.model("userOrders", orderSchema);
 
 export default OrderModel;

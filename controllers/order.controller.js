@@ -8,58 +8,67 @@ import UserModel from "../models/user.model.js";
 import mongoose from "mongoose";
 import ProductModel from "../models/product.model.js"
 import AdminOrderModel from "../models/orderadmin.model.js";
-export async function CashOnDeliveryOrderController(request, response) {
+export async function CashOnDeliveryOrderController(req, res) {
   try {
-    const userId = request.user.user_id;
-    const { list_items, totalAmt, address_id, subTotalAmt } = request.body;
+    const userId = req.user.user_id;
+    const { list_items, totalAmt, address_id, subTotalAmt } = req.body;
 
-    console.log("order items list : -", list_items);
-
+    // 1️⃣ Generate order number
     const counter = await CounterModel.findOneAndUpdate(
       { id: "order_no" },
       { $inc: { seq: 1 } },
       { new: true, upsert: true }
     );
 
-    const order_id = counter.seq + 100
-    const orderData = {
-      user_id : userId,
-      order_no: order_id,
-      orderId : `#ORD-${order_id}`,
-      items : list_items.map((el) => ({
-        productId: el.product?.productId || el.productId, // support both shapes
+    const order_no = counter.seq + 100;
+    const orderId = `#ORD-${order_no}`;
+    const order_Id = `#ORD-${order_no}`
+
+    // 2️⃣ Create user order
+    const userOrderData = {
+      user_id: userId,
+      order_no,
+      orderId,
+      items: list_items.map(el => ({
+        productId: el.product?.productId || el.productId,
         product_details: {
           name: el.product?.name || el.name,
           image: el.product?.image || el.image || [],
         },
         quantity: el.quantity || 1,
         subTotalAmt: el.subTotalAmt || (el.quantity || 1) * (el.product?.price || 0),
+        delivery_date: Date()
       })),
       paymentId: "",
       payment_status: "CASH ON DELIVERY",
+      status: "Pending", // ✅ Must be string
       delivery_address: address_id,
-      totalAmt: totalAmt,
+      totalAmt,
     };
 
-    const generatedOrder = await OrderModel.create(orderData);
+    const generatedOrder = await OrderModel.create(userOrderData);
+
+    // 3️⃣ Get delivery address
     const address = await AddressModel.findOne({ address_id });
     if (!address) {
       return res.status(400).json({ success: false, error: true, message: "Address not found" });
     }
+
+    // 4️⃣ Prepare admin order
     const adminItems = list_items.map(el => ({
-      productId: el.product.productId, // numeric
+      productId: el.product?.productId || el.productId,
       quantity: el.quantity || 1,
-      priceAtPurchase: el.price - (el.discount || 0),
-      priceWithOutDiscount:el.price,
+      priceAtPurchase: (el.product?.price || el.price) - (el.discount || 0),
+      priceWithOutDiscount: el.product?.price || el.price || 0,
       product_details: {
-          name: el.product?.name || el.name,
-          image: el.product?.image || el.image || [],
-        },
+        name: el.product?.name || el.name,
+        image: el.product?.image || el.image || [],
+      },
     }));
 
     const adminOrder = await AdminOrderModel.create({
       user_id: userId,
-      order_Id: `#ORD-${order_id}`, // numeric
+      order_Id,
       orderItems: adminItems,
       shippingAddress: {
         fullAddress: address.address_line,
@@ -72,26 +81,29 @@ export async function CashOnDeliveryOrderController(request, response) {
       paymentMode: "COD",
       totalAmount: totalAmt,
       paymentStatus: "Pending",
-      status: "Pending",
+      status: "Pending", // ✅ Must be string
     });
-    // cleanup cart after placing order
+
+    // 5️⃣ Cleanup cart
     await CartProductModel.deleteMany({ user_id: userId });
     await UserModel.updateOne({ user_id: userId }, { shopping_cart: [] });
 
-    return response.json({
+    return res.json({
       success: true,
       error: false,
       data: generatedOrder,
       address: address_id,
     });
   } catch (error) {
-    return response.status(500).json({
+    console.error("COD Order Error:", error);
+    return res.status(500).json({
       message: error.message || error,
       error: true,
       success: false,
     });
   }
 }
+
 
 
 
@@ -249,8 +261,6 @@ export async function paymentController(request,response){
         })
     }
 }
-
-
 const getOrderProductItems = async({
     lineItems,
     userId,
@@ -474,3 +484,61 @@ const orderItemsWithDetails = await Promise.all(
     });
   }
 };
+
+
+export const updateOrderStatus = async (req, res) => {
+  try {
+    const { orderId, status } = req.body;
+
+    if (!orderId || !status) {
+      return res
+        .status(400)
+        .json({ success: false, message: "orderId & status required" });
+    }
+
+    // ✅ Ensure status is a valid string
+    const validStatuses = [
+      "Pending",
+      "Confirmed",
+      "Shipped",
+      "Out for Delivery",
+      "Delivered",
+      "Cancelled",
+    ];
+    if (!validStatuses.includes(status)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid status value" });
+    }
+
+    // 1️⃣ Update Admin Orders
+    const adminOrder = await AdminOrderModel.findOneAndUpdate(
+      { order_Id: orderId },
+      { status },
+      { new: true }
+    );
+
+    if (!adminOrder) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Admin order not found" });
+    }
+
+    // 2️⃣ Update User Orders
+    const userOrder = await OrderModel.findOneAndUpdate(
+      { orderId: orderId },
+      { status },
+      { new: true }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Order status updated successfully",
+      data: { adminOrder, userOrder },
+    });
+  } catch (error) {
+    console.error("Error updating order status:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
