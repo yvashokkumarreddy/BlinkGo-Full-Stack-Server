@@ -7,8 +7,8 @@ import genertedRefreshToken from '../utils/generatedRefreshToken.js'
 import uploadImageClodinary from '../utils/uploadImageClodinary.js'
 import generatedOtp from '../utils/generatedOtp.js'
 import forgotPasswordTemplate from '../utils/forgotPasswordTemplate.js'
-import jwt from 'jsonwebtoken
-import CounterModel from '../models/counterModel.js'
+import jwt from 'jsonwebtoken'
+import CounterModel from '../models/CounterModel.js'
 import bcryptjs from 'bcryptjs'
 
 
@@ -555,6 +555,30 @@ export async function userDetails(request, response) {
   } catch (error) {
     console.error(error);
     return response.status(500).json({
+      message: "Something went wrong",
+      error: true,
+      success: false
+    });
+  }
+}
+
+
+export async function getUsersByIds(req, res) {
+  try {
+    const { user_id } = req.body;
+// console.log("log req dat",req.body)
+    const users = await UserModel.find({ user_id: user_id })
+
+   
+console.log(users)
+    return res.json({
+      message: "Users fetched successfully",
+      data: users,
+      success: true
+    });
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    return res.status(500).json({
       message: "Something went wrong",
       error: true,
       success: false
