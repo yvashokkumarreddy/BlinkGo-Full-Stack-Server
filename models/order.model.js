@@ -15,10 +15,26 @@ const itemSchema = new mongoose.Schema(
       type: Number,
       default: 1,
     },
+      discount: {
+        type: Number,
+        derault: 1
+      },
+      price:{
+        type: Number,
+        default: 0
+      },
     subTotalAmt: {
-      type: Number,
+      type: Number, 
       default: 0,
     },
+    delivery_date:{
+      type: Date,
+      default: null
+    },
+    order_date:{
+      type:Date,
+      default: null
+    }
   },
   { _id: false }
 );

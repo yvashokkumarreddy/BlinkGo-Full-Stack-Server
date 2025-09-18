@@ -4,7 +4,9 @@ import CartProductModel from "../models/cartproduct.model.js";
 import CounterModel from "../models/CounterModel.js";
 import OrderModel from "../models/order.model.js";
 import UserModel from "../models/user.model.js";
+// import  AdminOrders from "../models/orderadmin.model.js"
 import mongoose from "mongoose";
+import ProductModel from "../models/product.model.js"
 import AdminOrderModel from "../models/orderadmin.model.js";
 export async function CashOnDeliveryOrderController(request, response) {
   try {
@@ -401,3 +403,74 @@ export async function getAllOrdersController(req, res, next){
     return res.status(500).json({ success: false, message: err.message });
   }
 }
+
+export async function reserveItems(req,res,next){
+  try {
+    const { orderId, items } = req.body; // orderId + reserved items
+
+    // Update stock for each product
+    for (let item of items) {
+      const product = await ProductModel.findById(item.productId); // or findByPk if Sequelize
+      if (product) {
+        product.stock = product.stock - item.reserved;
+        await product.save();
+      }
+    }
+
+    // Optionally update reserved qty in the order
+    // const updatedOrder = await Order.findById(orderId).populate("products");
+    res.json(updatedOrder);
+  } catch (error) {
+    console.error("Error reserving items:", error);
+    next(error)
+    res.status(500).json({ message: "Failed to reserve items" });
+  }
+}
+
+
+export const getOrderById = async (req, res) => {
+  try {
+    const { orderId ,userId} = req.body;
+console.log("order",userId)
+    if (!orderId) {
+      return res.status(400).json({
+        success: false,
+        message: "Order ID is required",
+      });
+    }
+  const user = await UserModel.findOne({user_id: userId})
+    // Fetch order and populate both user and product details
+    const order = await AdminOrderModel.findOne({order_Id:orderId})
+      // .populate("orderItems.productId"); // fetch complete product document
+const orderItemsWithDetails = await Promise.all(
+      order.orderItems.map(async (item) => {
+        const product = await ProductModel.findOne({productId: item.productId}).lean();
+        
+        return {
+          ...item,
+          product
+        };
+      })
+    );
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    // Send the full populated document
+    res.json({
+      success: true,
+      order,
+      user,
+      product_details: orderItemsWithDetails
+    });
+  } catch (error) {
+    console.error("Error fetching order:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching order",
+    });
+  }
+};
