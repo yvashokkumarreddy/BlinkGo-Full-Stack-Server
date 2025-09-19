@@ -26,6 +26,7 @@ const productSchema = new mongoose.Schema(
 
     unit: { type: String, default: "" },
     stock: { type: Number, default: null },
+    reserved:{type:Number,default : null },
     price: { type: Number, default: null },
     discount: { type: Number, default: null },
     description: { type: String, default: "" },

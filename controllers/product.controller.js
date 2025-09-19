@@ -1,4 +1,10 @@
 import ProductModel from "../models/product.model.js";
+import ExcelJS from "exceljs";
+import path from 'path'
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const createProductController = async(request,response,next)=>{
     try {
@@ -78,7 +84,7 @@ export const getProductController = async(request,response)=>{
 
         const query = search ? {
             $text : {
-                $search : search
+                $search : '%search%'
             }
         } : {}
 
@@ -313,5 +319,96 @@ export const searchProduct = async (req, res) => {
       success: false,
       error: true,
     });
+  }
+};
+
+
+
+
+
+
+// export const downloadProductTemplate = async (req, res, next) => {
+//   try {
+
+//     console.log("eerror")
+//     const filePath = path.join(__dirname, "../templates/Product_Import_Template.xlsx");
+//     console.log("filePath",filePath)
+//     res.setHeader(
+//       "Content-Type",
+//       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+//     );
+//     res.setHeader(
+//       "Content-Disposition",
+//       "attachment; filename=Product_Import_Template.xlsx"
+//     );
+
+//     res.sendFile(filePath, (err) => {
+//       if (err) {
+//         console.error("SendFile Error:", err);
+//         res.status(500).json({ message: "Error sending template" });
+//       }
+//     });
+//   } catch (error) {
+//     console.error("Download error:", error);
+//     next(error)
+//     res.status(500).json({ message: "Error downloading template" });
+//   }
+// };
+
+
+
+// import path from "path";
+
+// import ExcelJS from "exceljs";
+import CategoryModel from "../models/category.model.js";
+import SubCategoryModel from "../models/subCategory.model.js";
+
+export const downloadProductTemplate = async (req, res) => {
+  try {
+    // Fetch categories & subcategories from MongoDB
+    const categories = await CategoryModel.find({}, { categoryId: 1, name: 1 }).lean();
+    const subCategories = await SubCategoryModel.find({}, { SubCategoryId: 1, name: 1 }).lean();
+
+    // Map to simple name arrays for dropdown
+    const categoryNames = categories.map(c => c.name);
+    const subCategoryNames = subCategories.map(s => s.name);
+
+    // Create workbook and worksheet
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet("Products");
+
+    // Define columns
+    ws.columns = [
+      { header: "name", key: "name", width: 25 },
+      { header: "price", key: "price", width: 15 },
+      { header: "categoryName", key: "categoryName", width: 25 },
+      { header: "subCategoryName", key: "subCategoryName", width: 25 },
+      { header: "stock", key: "stock", width: 15 },
+      { header: "description", key: "description", width: 30 },
+    ];
+
+    // Apply dropdowns directly in the main sheet (no extra sheets)
+    for (let row = 2; row <= 100; row++) {
+      ws.getCell(`C${row}`).dataValidation = {
+        type: "list",
+        allowBlank: false,
+        formulae: [`"${categoryNames.join(",")}"`], // categoryName dropdown
+      };
+      ws.getCell(`D${row}`).dataValidation = {
+        type: "list",
+        allowBlank: false,
+        formulae: [`"${subCategoryNames.join(",")}"`], // subCategoryName dropdown
+      };
+    }
+
+    // Send Excel file
+    res.setHeader("Content-Disposition", "attachment; filename=ProductImportTemplate.xlsx");
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    await workbook.xlsx.write(res);
+    res.end();
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
 };

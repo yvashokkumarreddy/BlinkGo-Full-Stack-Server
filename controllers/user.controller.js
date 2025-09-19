@@ -561,3 +561,27 @@ export async function userDetails(request, response) {
     });
   }
 }
+
+
+export async function getUsersByIds(req, res) {
+  try {
+    const { user_id } = req.body;
+// console.log("log req dat",req.body)
+    const users = await UserModel.find({ user_id: user_id })
+
+   
+console.log(users)
+    return res.json({
+      message: "Users fetched successfully",
+      data: users,
+      success: true
+    });
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    return res.status(500).json({
+      message: "Something went wrong",
+      error: true,
+      success: false
+    });
+  }
+}
