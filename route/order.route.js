@@ -1,7 +1,6 @@
 import { Router } from 'express'
 import auth from '../middleware/auth.js'
-import { CashOnDeliveryOrderController, deleteOrder, getAllOrdersController, getOrderById, getOrderDetailsController, paymentController, reserveItems, updateOrderStatus, webhookStripe } from '../controllers/order.controller.js'
-
+import {createShippingLabel,getShippingLabelByOrderId, CashOnDeliveryOrderController, deleteOrder, getAllOrdersController, getOrderById, getOrderDetailsController, paymentController, reserveItems, updateOrderStatus, webhookStripe } from '../controllers/order.controller.js'
 
 const orderRouter = Router()
 
@@ -14,4 +13,6 @@ orderRouter.post('/all-orders',auth,getAllOrdersController)
 orderRouter.post('/admin/reserve-items',auth,reserveItems)
 orderRouter.post('/order-details',auth,getOrderById)
 orderRouter.post('/update-order-status',auth,updateOrderStatus)
+orderRouter.post("/create-shipping-label", createShippingLabel);
+orderRouter.post("/get-label", getShippingLabelByOrderId);
 export default orderRouter 

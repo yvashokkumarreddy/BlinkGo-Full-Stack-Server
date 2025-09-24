@@ -4,10 +4,11 @@ import CartProductModel from "../models/cartproduct.model.js";
 import CounterModel from "../models/CounterModel.js";
 import OrderModel from "../models/order.model.js";
 import UserModel from "../models/user.model.js";
-// import  AdminOrders from "../models/orderadmin.model.js"
+import ShippingLabel from "../models/ShippingLabel.model.js";
 import mongoose from "mongoose";
 import ProductModel from "../models/product.model.js"
 import AdminOrderModel from "../models/orderadmin.model.js";
+import ShippingLabelModel from "../models/ShippingLabel.model.js";
 export async function CashOnDeliveryOrderController(req, res) {
   try {
     const userId = req.user.user_id;
@@ -40,7 +41,8 @@ export async function CashOnDeliveryOrderController(req, res) {
         delivery_date: Date()
       })),
       paymentId: "",
-      payment_status: "CASH ON DELIVERY",
+      paymentMode: "COD",
+      payment_status: "Pending",
       status: "Pending", // ✅ Must be string
       delivery_address: address_id,
       totalAmt,
@@ -379,15 +381,18 @@ export async function getOrderDetailsController(req, res) {
 
 export async function deleteOrder(req,res,next) {
     const userId = req.user.user_id
-    const {order_no} = req.body
+    const {order_id} = req.body
+    // console.log("ashok",req.body)
 try{
-    const order = OrderModel.findOne({order_no,user_id: userId})
-
+    const order = OrderModel.findOne({orderId:order_id,user_id: userId})
+  const admin = AdminOrderModel.findOne({order_Id: order_id})
     if(!order){
         res.status(400).json({status: 5, message: "order no not found"})
     }
-    await OrderModel.deleteOne({order_no})
-    res.status(200).json({status: 1, data:[{"order_deleted": order_no}]})
+    // console.log("order_id",order_id)
+    await OrderModel.deleteOne({orderId:order_id})
+    await AdminOrderModel.deleteOne({order_Id: order_id})
+    res.status(200).json({status: 1, data:[{"order_deleted": order_id}]})
   } catch(error){
     console.log(error)
     next()
@@ -396,7 +401,7 @@ try{
 
 export async function getAllOrdersController(req, res, next){
   try {
-    const orders = await AdminOrderModel.find().lean();
+    const orders = await AdminOrderModel.find().lean().sort({createdAt: -1});
 
     // const normalized = orders.map(order => ({
     //   orderId: order._id, // admin doesn’t have orderId, fallback to _id
@@ -448,6 +453,8 @@ console.log("order",userId)
         message: "Order ID is required",
       });
     }
+    const deliverydateship= await ShippingLabelModel.findOne({orderId:orderId})
+    console.log("deliverydateship",deliverydateship)
   const user = await UserModel.findOne({user_id: userId})
     // Fetch order and populate both user and product details
     const order = await AdminOrderModel.findOne({order_Id:orderId})
@@ -474,6 +481,7 @@ const orderItemsWithDetails = await Promise.all(
       success: true,
       order,
       user,
+      shippingLabelDetails: deliverydateship,
       product_details: orderItemsWithDetails
     });
   } catch (error) {
@@ -486,59 +494,130 @@ const orderItemsWithDetails = await Promise.all(
 };
 
 
-export const updateOrderStatus = async (req, res) => {
+export async function updateOrderStatus(req, res) {
   try {
-    const { orderId, status } = req.body;
+    const { orderId, status, deliveryDate } = req.body;
+    console.log("updateOrderStatus payload:", req.body);
 
-    if (!orderId || !status) {
-      return res
-        .status(400)
-        .json({ success: false, message: "orderId & status required" });
-    }
+    // Find order by custom field orderId / order_Id
+    const order = await OrderModel.findOne({ orderId: orderId }); 
+    const adminOrder = await AdminOrderModel.findOne({ order_Id: orderId });
 
-    // ✅ Ensure status is a valid string
-    const validStatuses = [
-      "Pending",
-      "Confirmed",
-      "Shipped",
-      "Out for Delivery",
-      "Delivered",
-      "Cancelled",
-    ];
-    if (!validStatuses.includes(status)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid status value" });
-    }
+    if (!order) return res.status(404).json({ message: "Order not found" });
+    if (!adminOrder) return res.status(404).json({ message: "Admin order not found" });
 
-    // 1️⃣ Update Admin Orders
-    const adminOrder = await AdminOrderModel.findOneAndUpdate(
-      { order_Id: orderId },
-      { status },
-      { new: true }
-    );
+    // Update fields
+    order.status = status;
+    order.deliveryDate = deliveryDate || new Date();
 
-    if (!adminOrder) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Admin order not found" });
-    }
+    adminOrder.status = status;
+    adminOrder.deliveryDate = deliveryDate || new Date();
 
-    // 2️⃣ Update User Orders
-    const userOrder = await OrderModel.findOneAndUpdate(
-      { orderId: orderId },
-      { status },
-      { new: true }
-    );
+    await order.save();
+    await adminOrder.save();
 
-    return res.status(200).json({
-      success: true,
-      message: "Order status updated successfully",
-      data: { adminOrder, userOrder },
-    });
-  } catch (error) {
-    console.error("Error updating order status:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(200).json({ message: "Order status updated", order, adminOrder });
+  } catch (err) {
+    console.error("Error updating order status:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
-};
+}
 
+
+
+
+
+export async function createShippingLabel(req, res) {
+  try {
+    const {
+      orderId,
+      carrierService,
+      serviceType,
+      packageName,
+      packageType,
+      weight,
+      dimensions,
+      subtotal,
+      total,
+      trackingNumber,
+      returnAddress,
+      deliveryDate,
+      products,
+    } = req.body;
+
+    // Check if a label already exists
+    const existing = await ShippingLabel.findOne({ orderId });
+    if (existing) {
+      return res.status(400).json({
+        message: "Shipping label already exists for this order",
+        shippingLabel: existing
+      });
+    }
+
+    // Create new shipping label
+    const label = new ShippingLabel({
+      orderId,
+      carrierService,
+      serviceType,
+      packageName,
+      packageType,
+      weight,
+      dimensions,
+      subtotal,
+      total,
+      trackingNumber,
+      returnAddress,
+      deliveryDate,
+      shippingDate: new Date(),
+      product: products || [],
+    });
+
+    // Update Order Status
+    await OrderModel.findOneAndUpdate(
+      { orderId },
+      { status: "Shipped", deliveryDate: deliveryDate || new Date() },
+      { new: true }
+    );
+
+    await AdminOrderModel.findOneAndUpdate(
+      { order_Id: orderId },
+      { status: "Shipped", deliveryDate: deliveryDate || new Date() },
+      { new: true }
+    );
+
+    await label.save();
+
+    res.status(201).json({
+      message: "Shipping label created successfully",
+      shippingLabel: label,
+    });
+  } catch (err) {
+    console.error("Error creating shipping label:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+}
+
+
+
+
+
+export async function getShippingLabelByOrderId(req, res) {
+  try {
+    const { orderId } = req.body;
+
+    if (!orderId) {
+      return res.status(400).json({ message: "orderId is required" });
+    }
+
+    const label = await ShippingLabel.findOne({ orderId });
+
+    if (!label) {
+      return res.status(404).json({ message: "Shipping label not found" });
+    }
+
+    res.json({status:1,data:label});
+  } catch (err) {
+    console.error("Error fetching shipping label:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+}

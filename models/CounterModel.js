@@ -6,5 +6,5 @@ const counterSchema = new mongoose.Schema({
   user_id: { type: Number, default: null }
 });
 
-const CounterModel = mongoose.model("Counter", counterSchema);
+const CounterModel = mongoose.models.counter||mongoose.model("counter", counterSchema);
 export default CounterModel;
