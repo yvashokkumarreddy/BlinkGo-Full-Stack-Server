@@ -610,12 +610,13 @@ export async function getShippingLabelByOrderId(req, res) {
     }
 
     const label = await ShippingLabel.findOne({ orderId });
+    const order_details = await AdminOrderModel.findOne({order_Id:orderId})
 
     if (!label) {
       return res.status(404).json({ message: "Shipping label not found" });
     }
 
-    res.json({status:1,data:label});
+    res.json({status:1,data:label,order_details});
   } catch (err) {
     console.error("Error fetching shipping label:", err);
     res.status(500).json({ message: "Server error", error: err.message });
