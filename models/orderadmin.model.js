@@ -10,6 +10,10 @@ const orderAdminModel = new mongoose.Schema({
       type: String,
       required: true,
     },
+    paymentId: {
+      type: String,
+      default: "",
+    },
   orderItems: [
     {
       productId: {
@@ -30,8 +34,7 @@ const orderAdminModel = new mongoose.Schema({
         required: true,
       },
       priceWithOutDiscount: {
-        type: Number,
-        required: true
+        type: Number
       }
     }
   ],

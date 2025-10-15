@@ -5,7 +5,6 @@ const itemSchema = new mongoose.Schema(
     productId: {
       type: Number,
       ref: "product",
-      required: true,
     },
     product_details: {
       name: String,
@@ -53,6 +52,9 @@ const orderSchema = new mongoose.Schema(
     orderId: {
       type: String,
       required: [true, "Provide orderId"],
+    },
+    razorpayOrderId: {
+      type: String
     },
     items: [itemSchema], // multiple products in one order
     paymentId: {

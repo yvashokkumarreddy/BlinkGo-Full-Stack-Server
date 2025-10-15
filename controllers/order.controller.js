@@ -15,13 +15,13 @@ export async function CashOnDeliveryOrderController(req, res) {
     const { list_items, totalAmt, address_id, subTotalAmt } = req.body;
 
     // 1️⃣ Generate order number
-    const counter = await CounterModel.findOneAndUpdate(
-      { id: "order_no" },
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true }
-    );
+    // const counter = await CounterModel.findOneAndUpdate(
+    //   { id: "order_no" },
+    //   { $inc: { seq: 1 } },
+    //   { new: true, upsert: true }
+    // );
 
-    const order_no = counter.seq + 100;
+    const order_no = await getNextOrderNo();
     const orderId = `#ORD-${order_no}`;
     const order_Id = `#ORD-${order_no}`
 
@@ -496,7 +496,7 @@ const orderItemsWithDetails = await Promise.all(
 
 export async function updateOrderStatus(req, res) {
   try {
-    const { orderId, status, deliveryDate } = req.body;
+    const { orderId, status,paymentId, deliveryDate } = req.body;
     console.log("updateOrderStatus payload:", req.body);
 
     // Find order by custom field orderId / order_Id
@@ -508,9 +508,11 @@ export async function updateOrderStatus(req, res) {
 
     // Update fields
     order.status = status;
+    order.paymentId = paymentId
     order.deliveryDate = deliveryDate || new Date();
 
     adminOrder.status = status;
+    adminOrder.paymentId = paymentId
     adminOrder.deliveryDate = deliveryDate || new Date();
 
     await order.save();
@@ -610,14 +612,94 @@ export async function getShippingLabelByOrderId(req, res) {
     }
 
     const label = await ShippingLabel.findOne({ orderId });
+    const order_details = await AdminOrderModel.findOne({order_Id:orderId})
 
     if (!label) {
       return res.status(404).json({ message: "Shipping label not found" });
     }
 
-    res.json({status:1,data:label});
+    res.json({status:1,data:label,order_details});
   } catch (err) {
     console.error("Error fetching shipping label:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 }
+
+
+
+
+// Generate unique order_no per user
+async function getNextOrderNo() {
+  const lastOrder = await OrderModel.findOne().sort({ order_no: -1 });
+  return lastOrder ? lastOrder.order_no + 1 : 1;
+}
+
+export const createOnlineOrder = async (req, res) => {
+  try {
+    const { user_id, list_items, addressId, totalAmt, paymentMode } = req.body;
+
+    if (!user_id || !list_items || list_items.length === 0 || !addressId || !totalAmt) {
+      return res.status(400).json({ success: false, message: "Invalid order data" });
+    }
+
+    // 1️⃣ Generate unique order number
+    const order_no = await getNextOrderNo(user_id);
+    const orderId = `#ORD-${order_no}`;
+
+    // 2️⃣ Prepare items for user order
+    const userItems = list_items.map((item) => ({
+      productId: item.productId,
+      product_details: {
+        name: item.name,
+        image: item.image,
+      },
+      quantity: item.quantity,
+      price: item.price,
+      subTotalAmt: item.price * item.quantity,
+      discount: item.discount || 0,
+      order_date: new Date(),
+    }));
+
+    // 3️⃣ Save to User Orders
+    const userOrder = await UserOrderModel.create({
+      user_id,
+      order_no,
+      orderId,
+      items: userItems,
+      paymentMode,
+      payment_status: "Paid",
+      status: "Pending",
+      delivery_address: addressId,
+      totalAmt,
+    });
+
+    // 4️⃣ Prepare items for Admin Orders
+    const adminItems = list_items.map((item) => ({
+      productId: item.productId,
+      product_details: {
+        name: item.name,
+        image: item.image,
+      },
+      quantity: item.quantity,
+      priceAtPurchase: item.price,
+      priceWithOutDiscount: item.price, // adjust if you have discount
+    }));
+
+    // 5️⃣ Save to Admin Orders
+    await AdminOrderModel.create({
+      user_id,
+      order_Id: orderId,
+      orderItems: adminItems,
+      shippingAddress: addressId, // make sure your address schema matches
+      totalAmount: totalAmt,
+      paymentMode,
+      paymentStatus: "Paid",
+      status: "Pending",
+    });
+
+    res.json({ success: true, message: "Order placed successfully", orderId });
+  } catch (err) {
+    console.error("Create online order error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

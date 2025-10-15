@@ -14,12 +14,15 @@ import productRouter from './route/product.route.js'
 import cartRouter from './route/cart.route.js'
 import addressRouter from './route/address.route.js'
 import orderRouter from './route/order.route.js'
+// import payments from 'razorpay/dist/types/payments.js/.'
+import paymentsRouter from './route/payments.route.js'
 
 
 
 const app = express()
 app.use(
   cors({
+// frontend orig
     origin: "https://grozaar.vercel.app", // frontend origin (adjust in prod)
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -30,6 +33,9 @@ app.use(
 app.use(express.json())
 app.use(cookieParser())
 app.use(morgan())
+if (process.env.NODE_ENV === "production") {
+  app.use(morgan("dev"));
+}
 app.use(helmet({
     crossOriginResourcePolicy : false
 }))
@@ -51,6 +57,7 @@ app.use("/product",productRouter)
 app.use("/cart",cartRouter)
 app.use("/address",addressRouter)
 app.use("/order", orderRouter)
+app.use("/payments",paymentsRouter)
 
 app.use(express.urlencoded({extended: true}))
 
@@ -60,4 +67,5 @@ connectDB().then(()=>{
         console.log("Server is running http://0.0.0.0:",PORT)
     })
 })
+
 
