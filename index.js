@@ -22,7 +22,8 @@ import paymentsRouter from './route/payments.route.js'
 const app = express()
 app.use(
   cors({
-    origin:  "http://localhost:5173" , // frontend origin (adjust in prod)
+// frontend orig
+    origin: "https://grozaar.vercel.app", // frontend origin (adjust in prod)
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
