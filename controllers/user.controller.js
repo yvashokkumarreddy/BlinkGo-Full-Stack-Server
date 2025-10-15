@@ -271,40 +271,39 @@ export async  function uploadAvatar(request,response){
 }
 
 //update user details
-export async function updateUserDetails(request,response){
-    try {
-        const userId = request.user_id //auth middleware
-        const { name, email, mobile, password } = request.body 
+export async function updateUserDetails(request, response) {
+  try {
+    // auth middleware should attach a plain value like 16 (not { user_id: 16 })
+    const userId = request.user.user_id; 
+    const { name, email, mobile } = request.body;
 
-        let hashPassword = ""
+    const updateUser = await UserModel.findOneAndUpdate(
+  { user_id: userId },  // must match your schema field type
+  { name, email, mobile },
+  { new: true }
+)
 
-        if(password){
-            const salt = await bcryptjs.genSalt(10)
-            hashPassword = await bcryptjs.hash(password,salt)
-        }
-
-        const updateUser = await UserModel.updateOne({ user_id : userId},{
-            ...(name && { name : name }),
-            ...(email && { email : email }),
-            ...(mobile && { mobile : mobile }),
-            ...(password && { password : hashPassword })
-        })
-
-        return response.json({
-            message : "Updated successfully",
-            error : false,
-            success : true,
-            data : updateUser
-        })
-
-
-    } catch (error) {
-        return response.status(500).json({
-            message : error.message || error,
-            error : true,
-            success : false
-        })
+    if (!updateUser) {
+      return response.status(404).json({
+        message: "User not found",
+        error: true,
+        success: false,
+      });
     }
+
+    return response.json({
+      message: "Updated successfully",
+      error: false,
+      success: true,
+      data: updateUser,
+    });
+  } catch (error) {
+    return response.status(500).json({
+      message: error.message || error,
+      error: true,
+      success: false,
+    });
+  }
 }
 export async function forgotPasswordController(req, res) {
   try {
